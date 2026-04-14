@@ -4,8 +4,10 @@
 #include <netinet/in.h>
 
 int main() {
-    int         sock_fd;
-    struct sockaddr_in sock_add;
+    int                 sock_fd;
+    struct sockaddr_in  sock_add;
+    struct sockaddr_in  client_add;
+    socklen_t           client_add_size;
 
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
                 // param 1: specifies what kind of addresses we're dealing with. AF_LOCAL for local IPC (on the same computer), AF_INET for IPC over the INTERNTET (IPv4).
@@ -15,12 +17,13 @@ int main() {
         perror("socket()");
     sock_add.sin_family = AF_INET;
     sock_add.sin_port = htons(6969);
-    sock_add.sin_addr = htons(INADDR_ANY);
+    sock_add.sin_addr = INADDR_ANY;
     if (bind(sock_fd, (const struct sockaddr *)&sock_add, sizeof(sock_add)) < 0)
         perror("bind()");
     if (listen(sock_fd, 1) < 0)
         perror("listen()");
-    if (accept(, ) < 0)
+    client_add_size = sizeof(client_add);
+    if (accept(sock_fd, (struct sockaddr *)&client_add, &client_add_size) < 0)
         perror("accept()");
     return (0);
 }
