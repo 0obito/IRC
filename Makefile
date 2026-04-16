@@ -18,15 +18,15 @@ SRC      = $(SRVSRC) $(CLISRC)
 OBJ      = $(SRVOBJ) $(CLIOBJ)
 
 # Rules:
-$(SERVER): $(SRVOBJ)
-	$(COMPILER) $(FLAGS) $< -o $(SERVER)
-
-$(CLIENT): $(CLIOBJ)
-	$(COMPILER) $(FLAGS) $< -o $(CLIENT)
-
 all: $(NAME)
 
 $(NAME) : $(CLIENT) $(SERVER)
+
+$(SERVER): $(SRVOBJ)
+	$(COMPILER) $(FLAGS) $^ -o $(SERVER)
+
+$(CLIENT): $(CLIOBJ)
+	$(COMPILER) $(FLAGS) $^ -o $(CLIENT)
 
 %.o: %.c
 	$(COMPILER) $(FLAGS) -c $< -o $@
