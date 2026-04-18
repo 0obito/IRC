@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <string.h>
 
 int	main() {
     int clientFD;
@@ -16,9 +17,11 @@ int	main() {
     servAddress.sin_addr.s_addr = (1 << 24) + 127;
     servAddress.sin_port = htons(6969);
     connectRet = connect(clientFD, (const struct sockaddr *)&servAddress, sizeof(servAddress));
-    if (connect != 0)
+    if (connectRet != 0)
         perror("connect()");
     // Next on: Talk with server!
-    write();
+    char    *msg = "This is the client, hey there!\n";
+    write(clientFD, msg, strlen(msg));
+    close(clientFD);
     return (0);
 }
