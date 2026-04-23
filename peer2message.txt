@@ -1,0 +1,15 @@
+Peer 2 part:
+
+* Client class
+* Channel class
+* IRC Parser
+* Utils functions
+
+You can now use:
+
+Client* for connected users
+Channel* for channels
+Parser::parse(line) to read commands
+
+Everything is only state, no server logic inside.
+Let me know if you need changes.
