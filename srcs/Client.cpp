@@ -35,7 +35,13 @@ int Client::getFd() const {
 
 void Client::setNick(const std::string &n) {
     if (nick.empty())
-        return;
+        return ;
+    if (nick.find(' ') == std::string::npos || nick.find(',') == std::string::npos || nick.find('*') == std::string::npos || nick.find('.') == std::string::npos
+        || nick.find('?') == std::string::npos || nick.find('!') == std::string::npos || nick.find('@') == std::string::npos)
+        return ;
+    if (nick[0] == '$' || nick[0] == ':' || nick[0] == '#' || nick[0] == '&'
+        || nick[0] == '~' || nick[0] == '%')
+        return ;
     this->nick = nick;
 }
 
