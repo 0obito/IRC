@@ -34,6 +34,7 @@ public:
     // 🔹 basic info
     const std::string &getName() const;
     const std::string &getTopic() const;
+    void setName(const std::string &n);
     void setTopic(const std::string &t);
 
     // 🔹 modes

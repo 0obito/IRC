@@ -34,15 +34,15 @@ int Client::getFd() const {
 }
 
 void Client::setNick(const std::string &n) {
-    if (nick.empty())
+    if (n.empty())
         return ;
-    if (nick.find(' ') == std::string::npos || nick.find(',') == std::string::npos || nick.find('*') == std::string::npos || nick.find('.') == std::string::npos
-        || nick.find('?') == std::string::npos || nick.find('!') == std::string::npos || nick.find('@') == std::string::npos)
+    if (n.find(' ') == std::string::npos || n.find(',') == std::string::npos || n.find('*') == std::string::npos || n.find('.') == std::string::npos
+        || n.find('?') == std::string::npos || n.find('!') == std::string::npos || n.find('@') == std::string::npos)
         return ;
-    if (nick[0] == '$' || nick[0] == ':' || nick[0] == '#' || nick[0] == '&'
-        || nick[0] == '~' || nick[0] == '%')
+    if (n[0] == '$' || n[0] == ':' || n[0] == '#' || n[0] == '&'
+        || n[0] == '~' || n[0] == '%' || n[0] == '+')
         return ;
-    this->nick = nick;
+    this->nick = n;
 }
 
 void Client::setUser(const std::string &u) {

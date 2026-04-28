@@ -22,6 +22,15 @@ const std::string &Channel::getTopic() const {
     return topic;
 }
 
+void Channel::setName(const std::string &n)
+{
+    if (n[0] != '#' && n[0] != '&')
+        return ;
+    if (n.find(' ') == std::string::npos || n.find('^G') == std::string::npos || n.find(',') == std::string::npos)
+        return ;
+    this->name = n;
+}
+
 void Channel::setTopic(const std::string &t)
 {
     topic = t;
