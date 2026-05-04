@@ -16,10 +16,12 @@ commandDispatcher& commandDispatcher::operator=(const commandDispatcher& other) 
 commandDispatcher::~commandDispatcher() {
 }
 
-void commandDispatcher::routeCommand(Server& server, Client& client, Parser& msg) {
+void commandDispatcher::routeCommand(Server& server, Client& client, Command &msg) {
 
     // expecting Nisrine to hand me the command separated (like: "PASS" or "NICK").
     // will ask her about the Parser class later, it doesn't look done yet.
+
+    // i've changed the parser argument with the Command bcz it's the struct that contains the parts of the msg
 
     if (_handlers.find(msg.command) != _handlers.end()) {
         commandHandler func = _handlers[msg.command];
