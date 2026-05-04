@@ -1,6 +1,10 @@
 #include "includes/Dispatcher.hpp"
 #include "includes/DispatcherUtils.hpp"
 
+void handleCAP(Server& server, Client& client, Command& parsedMsg) {
+    std::cout << "CAP * LS :" << std::endl;
+}
+
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     if (client.isRegistered) {
         std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
@@ -21,7 +25,6 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
-    ;
 }
 
 void handleUSER(Server& server, Client& client, Command& parsedMsg) {

@@ -7,6 +7,7 @@
 #include "includes/Parser.hpp"
 #include "includes/Dispatcher.hpp"
 
+void handleCAP(Server& server, Client& client, Command& parsedMsg);
 void handlePASS(Server& server, Client& client, Command& parsedMsg);
 void handleNICK(Server& server, Client& client, Command& parsedMsg);
 void handleUSER(Server& server, Client& client, Command& parsedMsg);
