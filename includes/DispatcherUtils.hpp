@@ -7,8 +7,8 @@
 #include "includes/Parser.hpp"
 #include "includes/Dispatcher.hpp"
 
-void handlePASS(Client& client, Server& server, Parser& parser);
-void handleNICK(Client& client, Server& server, Parser& parser);
-void handleUSER(Client& client, Server& server, Parser& parser);
+void handlePASS(Client& client, Server& server, Command& parsedMsg);
+void handleNICK(Client& client, Server& server, Command& parsedMsg);
+void handleUSER(Client& client, Server& server, Command& parsedMsg);
 
 #endif
