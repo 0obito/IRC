@@ -1,12 +1,12 @@
 #include "includes/Dispatcher.hpp"
 #include "includes/DispatcherUtils.hpp"
 
-void handlePASS(Client& client, Server& server, Command& parsedMsg) {
+void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     if (client.isRegistered) {
         std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
-    if (sizeof(parsedMsg.params) == 0) {
+    if (parsedMsg.params.empty() == true) {
         std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
@@ -15,15 +15,15 @@ void handlePASS(Client& client, Server& server, Command& parsedMsg) {
         return ;
     }
     else {
-        std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
+        std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
         return ;
     }
 }
 
-void handleNICK(Client& client, Server& server, Command& parsedMsg) {
+void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     ;
 }
 
-void handleUSER(Client& client, Server& server, Command& parsedMsg) {
+void handleUSER(Server& server, Client& client, Command& parsedMsg) {
     ;
 }
