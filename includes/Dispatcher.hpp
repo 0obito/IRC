@@ -5,8 +5,9 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include "includes/Parser.hpp"  // to recognize command structure.
 
-typedef void (*commandHandler)(Server& server, Client& client, Parser& parser);
+typedef void (*commandHandler)(Server& server, Client& client, Command& parsedMsg);
 
 class commandDispatcher {
     private:
@@ -17,7 +18,7 @@ class commandDispatcher {
         commandDispatcher(const commandDispatcher& other);
         commandDispatcher& operator=(const commandDispatcher& other);
         ~commandDispatcher();
-        void routeCommand(Server& server, Client& client, Parser& msg);
+        void routeCommand(Server& server, Client& client, Command& parsedMsg);
 };
 
 #endif
