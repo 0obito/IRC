@@ -20,17 +20,40 @@ void    Server::run()
     listen(serversocket, SOMAXCONN);
 }
 
+int    Server::acceptNewClient()
+{
+    int new_fd = accept(serversocket, NULL, NULL);
+    client[new_fd] = Client(new_fd);
+    return (new_fd);
+}
+
 void    Server::multiplexar()
 {
+    struct epoll_event      ev;
+    int                     nfds;
+    int                     new_fd;
+    int                     current_fd;
+
     epfd = epoll_create1(0);
-    if (epfd < 0)
-    {
+    if (epfd < 0){
         std::cerr << "ERROR: epoll_create1()" << std::endl;
         exit(1);
     }
     ev.events = EPOLLIN;
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
+    while(true){
+        nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, -1);
+        for (int i = 0; i < nfds; i++){
+            if (event_buffer[i].data.fd = serversocket){
+                new_fd = Server::acceptNewClient();
+                epoll_ctl(new_fd, EPOLL_CTL_ADD, serversocket, &ev);
+            }
+            else if(event_buffer[i].events & EPOLLIN){
+                // receiv Data 
+            }
+        }
+    }
 }
 
 Server::Server(int port_in, std::string pwd) {

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <map>
+#include "Client.hpp"
 
 class Server {
 private:
@@ -14,10 +15,10 @@ private:
     int                     epfd;
     int                     port;
     struct sockaddr_in      address;
-    struct epoll_event      ev;
+    static const int        MAX_EVENTS = 100;
+    struct epoll_event      event_buffer[MAX_EVENTS];
     std::string             password;
-    std::map<int, std::string> client;
-    // std::vector<pollfd>     fds;
+    std::map<int, Client> client;
 
 public:
     Server(int port_in, std::string pwd);
@@ -31,7 +32,7 @@ public:
     void        initserver();
     void        run();
     void        multiplexar();
-    void        acceptNewClient();
+    int        acceptNewClient();
 };
 
 #endif
