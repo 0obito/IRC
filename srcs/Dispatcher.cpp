@@ -2,6 +2,7 @@
 #include "includes/DispatcherUtils.hpp"
 
 commandDispatcher::commandDispatcher() {
+    _handlers["CAP"]  = &handleCAP;
     _handlers["PASS"] = &handlePASS;
     _handlers["NICK"] = &handleNICK;
     _handlers["USER"] = &handleUSER;

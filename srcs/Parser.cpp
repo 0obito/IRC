@@ -6,7 +6,7 @@ Command Parser::parse(const std::string &line)
 {
     Command cmd;
 
-    std::string clean = trim(line);
+    std::string clean = line;
     std::stringstream ss(clean);
     std::string token;
     int paramCount = 0;
@@ -16,11 +16,11 @@ Command Parser::parse(const std::string &line)
     {
         cmd.prefix = token.substr(1);
         ss >> cmd.command;
-        cmd.command = toUpper(token);
+        cmd.command = toUpper(cmd.command);
     }
     else
     {
-        cmd.command = toUpper(token);
+        cmd.command = toUpper(cmd.command);
     }
 
     while (ss >> token)
@@ -28,7 +28,7 @@ Command Parser::parse(const std::string &line)
         if (paramCount >= 15)
             break;
 
-        if (token[0] == ':')
+        if (!token.empty() && token[0] == ':')
         {
             std::string rest;
             std::getline(ss, rest);
