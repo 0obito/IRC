@@ -1,5 +1,9 @@
 #include "includes/Server.hpp"
 
+std::string Server::get_password(){
+    return(password);
+}
+
 void Server::initserver()
 {
     address.sin_family = AF_INET;
@@ -14,6 +18,19 @@ void    Server::run()
     setsockopt(serversocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     bind(serversocket, (sockaddr*)&address, sizeof(address));
     listen(serversocket, SOMAXCONN);
+}
+
+void    Server::multiplexar()
+{
+    epfd = epoll_create1(0);
+    if (epfd < 0)
+    {
+        std::cerr << "ERROR: epoll_create1()" << std::endl;
+        exit(1);
+    }
+    ev.events = EPOLLIN;
+    ev.data.fd = serversocket;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
 }
 
 Server::Server(int port_in, std::string pwd) {
