@@ -54,6 +54,11 @@ public:
     void setUserOk(bool value);
     bool isRegistered() const;
 
+    // [obito] I added some getters to know the state of these booleans
+    bool getPassOk() const;
+    bool getNickOk() const;
+    bool getUserOk() const;
+
     //buffers
     std::string &getRecvBuf();
     std::string &getSendQueue();

@@ -34,14 +34,23 @@ int Client::getFd() const {
 }
 
 void Client::setNick(const std::string &n) {
-    if (n.empty())
+// [obito] Since we'll have to send a numeric reply if setting a nickname fails,
+//          it makes more sense to check the validity of the nickname in my Dispatcher.
+//         So I check the validity in my Dispatcher, if things are good I call your setter,
+//          if not then I return a convenient numeric reply.
+//         Also, I changed the 2nd if statement. Correct me if I'm wrong, but I think it's != instead of ==
+
+/*  if (n.empty())
         return ;
-    if (n.find(' ') == std::string::npos || n.find(',') == std::string::npos || n.find('*') == std::string::npos || n.find('.') == std::string::npos
-        || n.find('?') == std::string::npos || n.find('!') == std::string::npos || n.find('@') == std::string::npos)
+
+    if (n.find(' ') != std::string::npos || n.find(',') != std::string::npos || n.find('*') != std::string::npos || n.find('.') != std::string::npos
+        || n.find('?') != std::string::npos || n.find('!') != std::string::npos || n.find('@') != std::string::npos)
         return ;
+
     if (n[0] == '$' || n[0] == ':' || n[0] == '#' || n[0] == '&'
         || n[0] == '~' || n[0] == '%' || n[0] == '+')
-        return ;
+        return ;    */
+
     this->nick = n;
 }
 
@@ -67,6 +76,23 @@ void Client::setNickOk(bool value) {
 
 void Client::setUserOk(bool value) {
     userOk = value;
+}
+
+// [obito] I added the following getters to know the state of some booleans:
+//      getPassOk()
+//      getNickOk()
+//      getUserOk()
+
+bool Client::getPassOk() const{
+    return (passOk);    // PassOk getter
+}
+
+bool Client::getNickOk() const{
+    return (nickOk);    // NickOk getter
+}
+
+bool Client::getUserOk() const{
+    return (userOk);    // UserOk getter
 }
 
 bool Client::isRegistered() const
