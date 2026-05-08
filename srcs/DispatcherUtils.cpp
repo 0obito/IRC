@@ -1,8 +1,9 @@
 #include "includes/Dispatcher.hpp"
 #include "includes/DispatcherUtils.hpp"
+#include "includes/Server.hpp"
 
 void handlePASS(Client& client, Server& server, Command& parsedMsg) {
-    if (client.isRegistered) {
+    if (client.isRegistered()) {
         std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
@@ -10,7 +11,7 @@ void handlePASS(Client& client, Server& server, Command& parsedMsg) {
         std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
-    if (parsedMsg.params[0] == server.getPassword()) {
+    if (parsedMsg.params[0] == server.get_password()) {
         client.setPassOk(true);
         return ;
     }
