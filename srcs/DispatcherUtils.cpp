@@ -6,7 +6,7 @@ void handleCAP(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
-    if (client.isRegistered == true) {
+    if (client.isRegistered() == true) {
         std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
@@ -25,13 +25,13 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
 }
 
 bool nickIsValid(std::string &nickName) {
-    if (nickname.empty())
+    if (nickName.empty())
         return false;
-    if (nickname.find(' ') != std::string::npos || nickname.find(',') != std::string::npos || nickname.find('*') != std::string::npos || nickname.find('.') != std::string::npos
-        || nickname.find('?') != std::string::npos || nickname.find('!') != std::string::npos || nickname.find('@') != std::string::npos)
+    if (nickName.find(' ') != std::string::npos || nickName.find(',') != std::string::npos || nickName.find('*') != std::string::npos || nickName.find('.') != std::string::npos
+        || nickName.find('?') != std::string::npos || nickName.find('!') != std::string::npos || nickName.find('@') != std::string::npos)
         return false;
-    if (nickname[0] == '$' || nickname[0] == ':' || nickname[0] == '#' || nickname[0] == '&'
-        || nickname[0] == '~' || nickname[0] == '%' || nickname[0] == '+')
+    if (nickName[0] == '$' || nickName[0] == ':' || nickName[0] == '#' || nickName[0] == '&'
+        || nickName[0] == '~' || nickName[0] == '%' || nickName[0] == '+')
         return false;
     return true;
 }
@@ -43,7 +43,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
         return ;
     }
     std::string nickName = parsedMsg.params[0];
-    if (client.getNickOk == true && client.getNick == nickName) {
+    if (client.getNickOk() == true && client.getNick() == nickName) {
         // the requested nickname is the same as the existing older nickname, nothing to do.
         return ;
     }
