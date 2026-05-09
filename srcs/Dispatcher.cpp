@@ -23,6 +23,6 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& ms
         func(server, client, msg);
     }
     else {
-        std::cerr << "Command not found!" << std::endl;
+        std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
     }
 }

@@ -7,11 +7,11 @@ void handleCAP(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
-    if (client.isRegistered() == true) {
+    if (client.isRegistered()) {
         std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
-    if (parsedMsg.params.empty() == true) {
+    if (parsedMsg.params.empty()) {
         std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
@@ -25,7 +25,7 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     }
 }
 
-bool nickIsValid(std::string &nickName) {
+bool nickIsValid(const std::string &nickName) {
     if (nickName.empty())
         return false;
     if (nickName.find(' ') != std::string::npos || nickName.find(',') != std::string::npos || nickName.find('*') != std::string::npos || nickName.find('.') != std::string::npos
@@ -38,24 +38,30 @@ bool nickIsValid(std::string &nickName) {
 }
 
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
-    if (parsedMsg.params.empty() == true) {
+    if (!client.getPassOk()) {
+        // needs a more conveninet message than this i believe.
+        std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
+        return ;
+    }
+    if (parsedMsg.params.empty()) {
         // NR 431: Returned when a nickname parameter is expected for a command but isn’t given.
         std::cout << "ERR_NONICKNAMEGIVEN (431)" << std::endl;
         return ;
     }
     std::string nickName = parsedMsg.params[0];
-    if (client.getNickOk() == true && client.getNick() == nickName) {
-        // the requested nickname is the same as the existing older nickname, nothing to do.
+    if (client.getNickOk() && client.getNick() == nickName) {
+        // [CHANGE] the requested nickname is the same as the existing older nickname, nothing to do.
         return ;
     }
-    if (server.isNicknameTaken(parsedMsg.params[0]) == true) {
+    if (server.isNicknameTaken(parsedMsg.params[0])) {
         // NR 433: Returned when a NICK command cannot be successfully completed as the desired nickname is already in use on the network.
         std::cout << "ERR_NICKNAMEINUSE (433)" << std::endl;
         return ;
     }
-    if (nickIsValid(nickName) == true) {
+    if (nickIsValid(nickName)) {
         // the requested nickname is fine, set it.
         client.setNick(nickName);
+        registerClient(server, client, parsedMsg);
         return ;
     }
     else {
@@ -66,5 +72,30 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleUSER(Server& server, Client& client, Command& parsedMsg) {
-    ;
+    if (client.isRegistered()) {
+        std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
+        return ;
+    }
+    if (!client.getPassOk()) {
+        std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
+        return ;
+    }
+    if (parsedMsg.params.empty() || parsedMsg.params.size < 4) {
+        std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
+        return ;
+    }
+    client.setUser(parsedMsg.params[0]);
+    client.setRealname(parsedMsg.params[3]);
+    registerClient(server, client, parsedMsg);
+}
+
+void registerClient(Server& server, Client& client, Command& parsedMsg) {
+    if (client.isRegistered()) {
+        return ;
+    }
+    else {
+        ;
+    }
+
+    // to be triggered in both NICK and USER, checks if the client should be registered now or not.
 }
