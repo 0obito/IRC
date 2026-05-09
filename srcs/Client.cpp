@@ -5,7 +5,8 @@ Client::Client(int fd)
     : fd(fd),
       passOk(false),
       nickOk(false),
-      userOk(false)
+      userOk(false),
+      registerOk(false)
 {
 }
 
@@ -29,28 +30,11 @@ const std::string &Client::getHostname() const
     return hostname;
 }
 
-int Client::getFd() const {
+const int Client::getFd() const {
     return fd;
 }
 
 void Client::setNick(const std::string &n) {
-// [obito] Since we'll have to send a numeric reply if setting a nickname fails,
-//          it makes more sense to check the validity of the nickname in my Dispatcher.
-//         So I check the validity in my Dispatcher, if things are good I call your setter,
-//          if not then I return a convenient numeric reply.
-//         Also, I changed the 2nd if statement. Correct me if I'm wrong, but I think it's != instead of ==
-
-/*  if (n.empty())
-        return ;
-
-    if (n.find(' ') != std::string::npos || n.find(',') != std::string::npos || n.find('*') != std::string::npos || n.find('.') != std::string::npos
-        || n.find('?') != std::string::npos || n.find('!') != std::string::npos || n.find('@') != std::string::npos)
-        return ;
-
-    if (n[0] == '$' || n[0] == ':' || n[0] == '#' || n[0] == '&'
-        || n[0] == '~' || n[0] == '%' || n[0] == '+')
-        return ;    */
-
     this->nick = n;
 }
 
@@ -78,26 +62,25 @@ void Client::setUserOk(bool value) {
     userOk = value;
 }
 
-// [obito] I added the following getters to know the state of some booleans:
-//      getPassOk()
-//      getNickOk()
-//      getUserOk()
-
-bool Client::getPassOk() const{
-    return (passOk);    // PassOk getter
+void Client::setRegistered(bool value) {
+    registerOk = value;
 }
 
-bool Client::getNickOk() const{
-    return (nickOk);    // NickOk getter
+const bool Client::getPassOk() const{
+    return (passOk);
 }
 
-bool Client::getUserOk() const{
-    return (userOk);    // UserOk getter
+const bool Client::getNickOk() const{
+    return (nickOk);
 }
 
-bool Client::isRegistered() const
+const bool Client::getUserOk() const{
+    return (userOk);
+}
+
+const bool Client::isRegistered() const
 {
-    return passOk && nickOk && userOk;
+    return registerOk;
 }
 
 std::string &Client::getRecvBuf() {

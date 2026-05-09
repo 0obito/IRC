@@ -25,6 +25,7 @@ private:
     bool passOk;
     bool nickOk;
     bool userOk;
+    bool registerOk;
 
     std::string recvBuf;
     std::string sendQueue;
@@ -35,35 +36,36 @@ public:
     Client(int fd);
     ~Client();
 
-    //identity
+    // identity getters
     const std::string &getNick() const;
     const std::string &getUser() const;
     const std::string &getRealname() const;
     const std::string &getHostname() const;
+    const int getFd() const;
 
+    // identity setters
     void setNick(const std::string &n);
     void setUser(const std::string &u);
     void setRealname(const std::string &r);
     void setHostname(const std::string &h);
 
-    int getFd() const;
-
-    //auth
+    // state setters
     void setPassOk(bool value);
     void setNickOk(bool value);
     void setUserOk(bool value);
-    bool isRegistered() const;
+    void setRegistered(bool value);
 
-    // [obito] I added some getters to know the state of these booleans
-    bool getPassOk() const;
-    bool getNickOk() const;
-    bool getUserOk() const;
+    // state getters
+    const bool getPassOk() const;
+    const bool getNickOk() const;
+    const bool getUserOk() const;
+    const bool isRegistered() const;
 
-    //buffers
+    // buffers
     std::string &getRecvBuf();
     std::string &getSendQueue();
 
-    //channels
+    // channels
     void joinChannel(const std::string &name);
     void leaveChannel(const std::string &name);
     bool isInChannel(const std::string &name) const;

@@ -80,22 +80,22 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
         std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
         return ;
     }
-    if (parsedMsg.params.empty() || parsedMsg.params.size < 4) {
+    if (parsedMsg.params.empty() || parsedMsg.params.size() < 4) {
         std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
     client.setUser(parsedMsg.params[0]);
     client.setRealname(parsedMsg.params[3]);
-    registerClient(server, client, parsedMsg);
+    registerClient(client);
 }
 
-void registerClient(Server& server, Client& client, Command& parsedMsg) {
-    if (client.isRegistered()) {
-        return ;
-    }
-    else {
-        ;
-    }
-
+void registerClient(Client& client) {
     // to be triggered in both NICK and USER, checks if the client should be registered now or not.
+    if (!client.isRegistered()) {
+        if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
+            client.setRegistered(true);
+            std::cout << "" << std::endl;
+        }
+    }
+    return ;
 }
