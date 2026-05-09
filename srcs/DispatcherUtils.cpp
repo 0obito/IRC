@@ -1,18 +1,33 @@
 #include "includes/Dispatcher.hpp"
 #include "includes/DispatcherUtils.hpp"
 #include "includes/Server.hpp"
+#include "includes/Utils.hpp"
 
 void handleCAP(Server& server, Client& client, Command& parsedMsg) {
-    std::cout << "CAP * LS :" << std::endl;
+    std::string reply = ":" + server.getServerName() + " CAP * LS :\r\n";
+    client.getSendQueue() += reply;
+    // std::cout << "CAP * LS :" << std::endl;
+}
+
+void handleQUIT(Server& server, Client& client, Command& parsedMsg) {
+    // later machi db, shouldn't take any time;
 }
 
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
     if (client.isRegistered()) {
-        std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
+        reply = makeReply(serverName, 462, targetNick, "Unauthorized command (already registered)");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
     if (parsedMsg.params.empty()) {
-        std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
+        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
     if (parsedMsg.params[0] == server.get_password()) {
@@ -20,7 +35,9 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
         return ;
     }
     else {
-        std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
+        reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
         return ;
     }
 }
@@ -38,64 +55,109 @@ bool nickIsValid(const std::string &nickName) {
 }
 
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
     if (!client.getPassOk()) {
-        // needs a more conveninet message than this i believe.
-        std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
+        reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
         return ;
     }
     if (parsedMsg.params.empty()) {
-        // NR 431: Returned when a nickname parameter is expected for a command but isn’t given.
-        std::cout << "ERR_NONICKNAMEGIVEN (431)" << std::endl;
+        reply = makeReply(serverName, 431, targetNick, "No nickname given");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NONICKNAMEGIVEN (431)" << std::endl;
         return ;
     }
     std::string nickName = parsedMsg.params[0];
     if (client.getNickOk() && client.getNick() == nickName) {
-        // [CHANGE] the requested nickname is the same as the existing older nickname, nothing to do.
         return ;
     }
-    if (server.isNicknameTaken(parsedMsg.params[0])) {
-        // NR 433: Returned when a NICK command cannot be successfully completed as the desired nickname is already in use on the network.
-        std::cout << "ERR_NICKNAMEINUSE (433)" << std::endl;
+    if (server.isNicknameTaken(nickName)) {
+        reply = makeReply(serverName, 433, targetNick, "Nickname is already in use", nickName);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NICKNAMEINUSE (433)" << std::endl;
         return ;
     }
-    if (nickIsValid(nickName)) {
-        // the requested nickname is fine, set it.
-        client.setNick(nickName);
-        registerClient(server, client, parsedMsg);
+    if (!nickIsValid(nickName)) {
+        reply = makeReply(serverName, 433, targetNick, "Erroneous nickname", nickName);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_ERRONEUSNICKNAME (432)" << std::endl;
         return ;
     }
-    else {
-        // NR 432: Returned when a NICK command cannot be successfully completed as the desired nickname contains characters that are disallowed by the server.
-        std::cout << "ERR_ERRONEUSNICKNAME (432)" << std::endl;
-        return ;
-    }
+    client.setNick(nickName);
+    client.setNickOk(true);
+    registerClient(client, serverName);
+    return ;
 }
 
 void handleUSER(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
     if (client.isRegistered()) {
-        std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
+        reply = makeReply(serverName, 462, targetNick, "Unauthorized command (already registered)");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
     if (!client.getPassOk()) {
-        std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
+        reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
         return ;
     }
     if (parsedMsg.params.empty() || parsedMsg.params.size() < 4) {
-        std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
+        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
     client.setUser(parsedMsg.params[0]);
     client.setRealname(parsedMsg.params[3]);
-    registerClient(client);
+    client.setUserOk(true);
+    registerClient(client, serverName);
 }
 
-void registerClient(Client& client) {
-    // to be triggered in both NICK and USER, checks if the client should be registered now or not.
+void registerClient(Client& client, const std::string serverName) {
     if (!client.isRegistered()) {
         if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
+            // turn on registration flag
             client.setRegistered(true);
-            std::cout << "" << std::endl;
+            welcomingSeq(client, serverName);
         }
     }
+    return ;
+}
+
+// an example for a welcoming sequence, might change a thing or two later
+// i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
+void welcomingSeq(Client& client, const std::string serverName) {
+    std::string nick = client.getNick();
+    std::string user = client.getUser();
+    std::string version = "0.1";
+    std::stringstream ss;
+
+    ss << ":" << serverName << " 001 " << nick;
+    ss << " :Welcome to our Internet Relay Network " << nick << "!" << user << "@127.0.0.1\r\n";
+
+    ss << ":" << serverName << " 002 " << nick;
+    ss << " :Your host is " << serverName << ", running version " << version << "\r\n";
+
+    ss << ":" << serverName << " 003 " << nick;
+    ss << " :This server was created f 3am lfil\r\n";
+
+    ss << ":" << serverName << " 004 " << nick;
+    ss << " " << serverName << " " << version << " io itkol\r\n";
+
+    ss << ":" << serverName << " 005 " << nick;
+    ss << " CHANTYPES=# CHANNELLEN=32 NICKLEN=9 NETWORK=OurNetwork :are supported by this server\r\n";
+
+    std::string finalMsg = ss.str();
+    client.getSendQueue() += finalMsg;
+    std::cout << finalMsg;
     return ;
 }

@@ -18,7 +18,8 @@ private:
     static const int        MAX_EVENTS = 100;
     struct epoll_event      event_buffer[MAX_EVENTS];
     std::string             password;
-    std::map<int, Client> client;
+    std::map<int, Client>   client;
+    std::string             serverName;
 
 public:
     Server(int port_in, std::string pwd);
@@ -27,6 +28,7 @@ public:
     ~Server();
 
     std::string get_password();
+    const std::string& getServerName() const;
     void        add_client(int fd);
     bool        isNicknameTaken(const std::string& nickname) const;
     void        initserver();

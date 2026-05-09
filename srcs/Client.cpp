@@ -86,6 +86,7 @@ const bool Client::isRegistered() const
 std::string &Client::getRecvBuf() {
     return recvBuf;
 }
+
 std::string &Client::getSendQueue() {
     return sendQueue;
 }

@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include "includes/Parser.hpp"  // to recognize command structure.
 
 typedef void (*commandHandler)(Server& server, Client& client, Command& parsedMsg);

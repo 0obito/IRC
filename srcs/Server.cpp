@@ -78,3 +78,7 @@ const Server& Server::operator=(const Server& other) {
 Server::~Server() {
     close(serversocket);
 }
+
+const std::string& Server::getServerName() const {
+    return (serverName);
+}

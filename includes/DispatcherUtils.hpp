@@ -2,6 +2,8 @@
 #define DISPATCHER_UTILS_HPP
 
 #include <string>
+#include <sstream>
+#include <iostream>
 #include "includes/Server.hpp"
 #include "includes/Client.hpp"
 #include "includes/Parser.hpp"

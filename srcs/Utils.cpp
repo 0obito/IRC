@@ -2,17 +2,22 @@
 #include <sstream>
 #include <cctype>
 
-std::string makeReply(int code, const std::string &target, const std::string &msg)
+std::string makeReply(const std::string &serverName, int code, const std::string &target, const std::string &msg, const std::string &extraArgs = "")
 {
     std::stringstream ss;
 
-    ss << ":ircserv ";
+    ss << ":" << serverName << " ";
 
     if (code < 100) ss << "0";
     if (code < 10)  ss << "0";
     ss << code;
 
     ss << " " << target;
+
+    if (!extraArgs.empty()) {
+        ss << " " << extraArgs;
+    }
+
     ss << " :" << msg << "\r\n";
 
     return ss.str();
