@@ -62,6 +62,7 @@ public:
     const bool isRegistered() const;
 
     // buffers
+    void        appendtoRecvBuf(std::string buf);
     std::string &getRecvBuf();
     std::string &getSendQueue();
 

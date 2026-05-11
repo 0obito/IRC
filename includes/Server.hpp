@@ -30,6 +30,7 @@ public:
     std::string get_password();
     const std::string& getServerName() const;
     void        add_client(int fd);
+    void        handeleDisconnect(int fd);
     bool        isNicknameTaken(const std::string& nickname) const;
     void        initserver();
     void        run();

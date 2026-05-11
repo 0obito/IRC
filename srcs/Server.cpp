@@ -27,30 +27,55 @@ int    Server::acceptNewClient()
     return (new_fd);
 }
 
+void    Server::handeleDisconnect(int fd)
+{
+    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+    close(fd);
+    client.erase(fd);
+}
+
 void    Server::multiplexar()
 {
     struct epoll_event      ev;
     int                     nfds;
     int                     new_fd;
     int                     current_fd;
+    char                    buffer[1024];
 
     epfd = epoll_create1(0);
-    if (epfd < 0){
+    if (epfd < 0) {
         std::cerr << "ERROR: epoll_create1()" << std::endl;
         exit(1);
     }
     ev.events = EPOLLIN;
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
-    while(true){
+    while(true) {
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, -1);
-        for (int i = 0; i < nfds; i++){
-            if (event_buffer[i].data.fd = serversocket){
+        for (int i = 0; i < nfds; i++) {
+            current_fd = event_buffer[i].data.fd;
+            if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
-                epoll_ctl(new_fd, EPOLL_CTL_ADD, serversocket, &ev);
+                if (new_fd != 1){
+                    struct epoll_event client_ev; 
+                    client_ev.events = EPOLLIN;
+                    client_ev.data.fd = new_fd;
+                    epoll_ctl(epfd, EPOLL_CTL_ADD, new_fd, &client_ev);
+                }
             }
-            else if(event_buffer[i].events & EPOLLIN){
-                // receiv Data 
+            else if (event_buffer[i].events & EPOLLIN) {
+                ssize_t bytes = recv(current_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
+                if (bytes > 0)
+                {
+                    client[current_fd].appendtoRecvBuf(buffer);
+                    // check if message full "\r\n"
+                }
+                else if (bytes == 0)
+                    Server::handeleDisconnect(current_fd);
+                else {
+                    if (errno != EAGAIN || errno != EWOULDBLOCK)
+                        Server::handeleDisconnect(current_fd);
+                }
             }
         }
     }
