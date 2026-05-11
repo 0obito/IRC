@@ -1,4 +1,6 @@
 #include "includes/Server.hpp"
+#include "includes/Parser.hpp"
+#include "includes/Dispatcher.hpp"
 
 std::string Server::get_password(){
     return(password);
@@ -41,6 +43,7 @@ void    Server::multiplexar()
     int                     new_fd;
     int                     current_fd;
     char                    buffer[1024];
+    size_t                  position;
 
     epfd = epoll_create1(0);
     if (epfd < 0) {
@@ -69,6 +72,13 @@ void    Server::multiplexar()
                 {
                     client[current_fd].appendtoRecvBuf(buffer);
                     // check if message full "\r\n"
+                    while ((pos = client[current_fd].getRecvBuf().find("\r\n")) != std::string::npos)
+                    {
+                        std::string line = client[current_fd].getRecvBuf().substr(0, pos);
+                        client[current_fd].getRecvBuf().erase(0, pos + 2);
+                        Command msg = Parser.parse(line);
+                        // message is ready to go to dispatcher
+                    }
                 }
                 else if (bytes == 0)
                     Server::handeleDisconnect(current_fd);
