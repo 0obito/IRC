@@ -71,11 +71,21 @@ void    Server::multiplexar()
                 if (bytes > 0)
                 {
                     client[current_fd].appendtoRecvBuf(buffer);
+                    if (client[current_fd].getRecvBuf().size() > 4096)
+                    {
+                        Server::handeleDisconnect(current_fd);
+                        continue;
+                    }
                     // check if message full "\r\n"
                     while ((pos = client[current_fd].getRecvBuf().find("\r\n")) != std::string::npos)
                     {
                         std::string line = client[current_fd].getRecvBuf().substr(0, pos);
                         client[current_fd].getRecvBuf().erase(0, pos + 2);
+                        if (line.size() > 510)
+                        {
+                            Server::handeleDisconnect(current_fd);
+                            break;
+                        }
                         Command msg = Parser.parse(line);
                         // message is ready to go to dispatcher
                     }
@@ -83,7 +93,7 @@ void    Server::multiplexar()
                 else if (bytes == 0)
                     Server::handeleDisconnect(current_fd);
                 else {
-                    if (errno != EAGAIN || errno != EWOULDBLOCK)
+                    if (errno != EAGAIN || errno != EWOULDBLOCK)  // i think it should be && here not ||
                         Server::handeleDisconnect(current_fd);
                 }
             }
