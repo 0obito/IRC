@@ -35,7 +35,8 @@ public:
     void        initserver();
     void        run();
     void        multiplexar();
-    int        acceptNewClient();
+    int         acceptNewClient();
+    size_t      send_message(int fd, std::string &buf);
 };
 
 #endif

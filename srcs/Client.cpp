@@ -83,10 +83,6 @@ const bool Client::isRegistered() const
     return registerOk;
 }
 
-void    Client::appendtoRecvBuf(std::string buf) {
-    recvBuf += buf;
-}
-
 std::string &Client::getRecvBuf() {
     return recvBuf;
 }

@@ -36,6 +36,21 @@ void    Server::handeleDisconnect(int fd)
     client.erase(fd);
 }
 
+size_t Server::send_message(int fd, std::string &buf){
+    size_t send_size;
+
+    if (buf.empty())
+        return(0);
+    send_size = send(fd, buf.c_str(), buf.size(), MSG_DONTWAIT);
+    if (send_size > 0){
+        buf.erase(0, send_size);
+    }
+    else if (send_size == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        Server::handeleDisconnect(fd);
+    }
+    return (send_size);
+}
+
 void    Server::multiplexar()
 {
     struct epoll_event      ev;
@@ -59,7 +74,7 @@ void    Server::multiplexar()
             current_fd = event_buffer[i].data.fd;
             if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
-                if (new_fd != 1){
+                if (new_fd != -1){
                     struct epoll_event client_ev; 
                     client_ev.events = EPOLLIN;
                     client_ev.data.fd = new_fd;
@@ -70,21 +85,41 @@ void    Server::multiplexar()
                 ssize_t bytes = recv(current_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
                 if (bytes > 0)
                 {
-                    client[current_fd].appendtoRecvBuf(buffer);
+                    std::string &r_buf = client[current_fd].getRecvBuf();
+                    r_buf.append(buffer, bytes);
                     // check if message full "\r\n"
-                    while ((pos = client[current_fd].getRecvBuf().find("\r\n")) != std::string::npos)
+                    while ((position = client[current_fd].getRecvBuf().find("\r\n")) != std::string::npos)
                     {
-                        std::string line = client[current_fd].getRecvBuf().substr(0, pos);
-                        client[current_fd].getRecvBuf().erase(0, pos + 2);
-                        Command msg = Parser.parse(line);
+                        std::string line = client[current_fd].getRecvBuf().substr(0, position);
+                        client[current_fd].getRecvBuf().erase(0, position + 2);
+                        Command msg = Parser::parse(line);
                         // message is ready to go to dispatcher
+                    }
+                    std::string &sendQueue = client[current_fd].getSendQueue();
+                    if (!sendQueue.empty()){
+                        if (Server::send_message(current_fd, sendQueue) != sendQueue.size()){
+                            struct epoll_event current_ev; 
+                            current_ev.events = EPOLLIN | EPOLLOUT;
+                            current_ev.data.fd = current_fd;
+                            epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                        }
                     }
                 }
                 else if (bytes == 0)
                     Server::handeleDisconnect(current_fd);
                 else {
-                    if (errno != EAGAIN || errno != EWOULDBLOCK)
+                    if (errno != EAGAIN && errno != EWOULDBLOCK)
                         Server::handeleDisconnect(current_fd);
+                }
+                // i well handle the disconnected client her ....
+            }
+            else if (event_buffer[i].events & EPOLLOUT) {
+                Server::send_message(current_fd, client[current_fd].getSendQueue());
+                if (client[current_fd].getSendQueue().empty()){
+                    struct epoll_event current_ev; 
+                    current_ev.events = EPOLLIN;
+                    current_ev.data.fd = current_fd;
+                    epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
                 }
             }
         }
