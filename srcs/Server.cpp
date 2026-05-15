@@ -72,7 +72,10 @@ void    Server::multiplexar()
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, -1);
         for (int i = 0; i < nfds; i++) {
             current_fd = event_buffer[i].data.fd;
-            if (current_fd == serversocket) {
+            if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
+                Server::handeleDisconnect(current_fd);
+            }
+            else if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
                 if (new_fd != -1){
                     struct epoll_event client_ev; 
@@ -111,7 +114,6 @@ void    Server::multiplexar()
                     if (errno != EAGAIN && errno != EWOULDBLOCK)
                         Server::handeleDisconnect(current_fd);
                 }
-                // i well handle the disconnected client her ....
             }
             else if (event_buffer[i].events & EPOLLOUT) {
                 Server::send_message(current_fd, client[current_fd].getSendQueue());
