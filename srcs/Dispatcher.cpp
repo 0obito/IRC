@@ -1,5 +1,6 @@
 #include "includes/Dispatcher.hpp"
 #include "includes/DispatcherUtils.hpp"
+#include "includes/Utils.hpp"
 
 commandDispatcher::commandDispatcher() {
     _handlers["CAP"]  = &handleCAP;
@@ -17,12 +18,17 @@ commandDispatcher& commandDispatcher::operator=(const commandDispatcher& other) 
 commandDispatcher::~commandDispatcher() {
 }
 
-void commandDispatcher::routeCommand(Server& server, Client& client, Command& msg) {
-    if (_handlers.find(msg.command) != _handlers.end()) {
-        commandHandler func = _handlers[msg.command];
-        func(server, client, msg);
+void commandDispatcher::routeCommand(Server& server, Client& client, Command& parsedMsg) {
+    if (_handlers.find(parsedMsg.command) != _handlers.end()) {
+        commandHandler func = _handlers[parsedMsg.command];
+        func(server, client, parsedMsg);
     }
     else {
-        std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
+        std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+        std::string serverName = server.getServerName();
+        std::string reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
+
+        client.getSendQueue() += reply;
+        // std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
     }
 }

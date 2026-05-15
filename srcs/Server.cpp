@@ -33,7 +33,7 @@ void    Server::handeleDisconnect(int fd)
 {
     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
     close(fd);
-    client.erase(fd);
+    clientMap.erase(fd);
 }
 
 size_t Server::send_message(int fd, std::string &buf){
@@ -62,7 +62,7 @@ void    Server::multiplexar()
 
     epfd = epoll_create1(0);
     if (epfd < 0) {
-        std::cerr << "ERROR: epoll_create1()" << std::endl;
+        std::cerr << "[ERROR] Creating an epoll instance has failed!" << std::endl;
         exit(1);
     }
     ev.events = EPOLLIN;
@@ -88,7 +88,7 @@ void    Server::multiplexar()
                 ssize_t bytes = recv(current_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
                 if (bytes > 0)
                 {
-                    std::string &r_buf = client[current_fd].getRecvBuf();
+                    std::string &r_buf = clientMap[current_fd].getRecvBuf();
                     r_buf.append(buffer, bytes);
                     if (r_buf.size() > 4096)
                     {
@@ -106,9 +106,11 @@ void    Server::multiplexar()
                             break;
                         }
                         Command msg = Parser.parse(line);
-                        // message is ready to go to dispatcher
+                        commandDispatcher cmdDispatcher;
+                        // [obito] Here is the dispatcher:
+                        cmdDispatcher.routeCommand(this, clientMap[current_fd], msg);
                     }
-                    std::string &sendQueue = client[current_fd].getSendQueue();
+                    std::string &sendQueue = clientMap[current_fd].getSendQueue();
                     if (!sendQueue.empty()){
                         if (Server::send_message(current_fd, sendQueue) != sendQueue.size()){
                             struct epoll_event current_ev; 

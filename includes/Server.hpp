@@ -18,7 +18,7 @@ private:
     static const int        MAX_EVENTS = 100;
     struct epoll_event      event_buffer[MAX_EVENTS];
     std::string             password;
-    std::map<int, Client>   client;
+    std::map<int, Client>   clientMap;
     std::string             serverName;
 
 public:
