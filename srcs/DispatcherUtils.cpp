@@ -1,7 +1,7 @@
-#include "includes/Dispatcher.hpp"
-#include "includes/DispatcherUtils.hpp"
-#include "includes/Server.hpp"
-#include "includes/Utils.hpp"
+#include "../includes/Dispatcher.hpp"
+#include "../includes/DispatcherUtils.hpp"
+#include "../includes/Server.hpp"
+#include "../includes/Utils.hpp"
 
 void handleCAP(Server& server, Client& client, Command& parsedMsg) {
     std::string reply = ":" + server.getServerName() + " CAP * LS :\r\n";

@@ -1,6 +1,6 @@
-#include "includes/Dispatcher.hpp"
-#include "includes/DispatcherUtils.hpp"
-#include "includes/Utils.hpp"
+#include "../includes/Dispatcher.hpp"
+#include "../includes/DispatcherUtils.hpp"
+#include "../includes/Utils.hpp"
 
 commandDispatcher::commandDispatcher() {
     _handlers["CAP"]  = &handleCAP;
@@ -26,8 +26,9 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
     else {
         std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
         std::string serverName = server.getServerName();
-        std::string reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
+        std::string reply;
 
+        reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
         client.getSendQueue() += reply;
         // std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
     }

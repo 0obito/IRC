@@ -1,47 +1,37 @@
 # Options
-COMPILER = gcc
-FLAGS    = -Wall -Wextra -Werror -g3
+COMPILER = c++
+FLAGS    = -Wall -Wextra -Werror -g3 -std=c++98
+OBJ_dir  = objs/
+SRC_dir  = srcs/
 
 # Server
-SERVER   = server
-SRVSRC   = CsocketServer.c
-SRVOBJ   = $(SRVSRC:.c=.o)
+NAME  = ircserv
+SRC   = $(SRC_dir)Channel.cpp $(SRC_dir)Client.cpp $(SRC_dir)Dispatcher.cpp \
+        $(SRC_dir)DispatcherUtils.cpp $(SRC_dir)Parser.cpp $(SRC_dir)Server.cpp \
+        $(SRC_dir)Utils.cpp 
 
-# Client
-CLIENT   = client
-CLISRC   = CsocketClient.c
-CLIOBJ   = $(CLISRC:.c=.o)
+OBJ   = $(SRC:$(SRC_dir)%.cpp=$(OBJ_dir)%.o)
 
-# Server Client
-NAME     = socket
-SRC      = $(SRVSRC) $(CLISRC)
-OBJ      = $(SRVOBJ) $(CLIOBJ)
-
-# Rules:
+# Rules
 all: $(NAME)
 
-$(NAME) : $(CLIENT) $(SERVER)
+$(NAME): $(OBJ)
+	$(COMPILER) $(FLAGS) $^ -o $(NAME)
 
-$(SERVER): $(SRVOBJ)
-	$(COMPILER) $(FLAGS) $^ -o $(SERVER)
-
-$(CLIENT): $(CLIOBJ)
-	$(COMPILER) $(FLAGS) $^ -o $(CLIENT)
-
-%.o: %.c
+$(OBJ_dir)%.o: $(SRC_dir)%.cpp | $(OBJ_dir)
 	$(COMPILER) $(FLAGS) -c $< -o $@
 
+$(OBJ_dir):
+	mkdir -p $(OBJ_dir)
+
 clean:
-	rm -f $(OBJ)
+	rm -rf $(OBJ_dir)
 
 fclean: clean
-	rm -f $(CLIENT) $(SERVER)
+	rm -f $(NAME)
 
-re: fclean $(NAME)
-
+re: fclean all
 
 # Special Targets:
-
 .PHONY: clean
-
 .SECONDARY: $(OBJ)

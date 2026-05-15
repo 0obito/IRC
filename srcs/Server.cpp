@@ -1,6 +1,6 @@
-#include "includes/Server.hpp"
-#include "includes/Parser.hpp"
-#include "includes/Dispatcher.hpp"
+#include "../includes/Server.hpp"
+#include "../includes/Parser.hpp"
+#include "../includes/Dispatcher.hpp"
 
 std::string Server::get_password(){
     return(password);

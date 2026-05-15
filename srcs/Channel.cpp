@@ -1,5 +1,5 @@
-#include "Channel.hpp"
-#include "Utils.hpp"
+#include "../includes/Channel.hpp"
+#include "../includes/Utils.hpp"
 
 Channel::Channel(const std::string &n)
     : name(toLower(n)),
