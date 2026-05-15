@@ -90,12 +90,22 @@ void    Server::multiplexar()
                 {
                     std::string &r_buf = client[current_fd].getRecvBuf();
                     r_buf.append(buffer, bytes);
-                    // check if message full "\r\n"
-                    while ((position = client[current_fd].getRecvBuf().find("\r\n")) != std::string::npos)
+                    if (r_buf.size() > 4096)
                     {
-                        std::string line = client[current_fd].getRecvBuf().substr(0, position);
-                        client[current_fd].getRecvBuf().erase(0, position + 2);
-                        Command msg = Parser::parse(line);
+                        Server::handeleDisconnect(current_fd);
+                        continue;
+                    }
+                    // check if message full "\r\n"
+                    while ((position = r_buf.find("\r\n")) != std::string::npos)
+                    {
+                        std::string line = r_buf.substr(0, position);
+                        r_buf.erase(0, position + 2);
+                        if (line.size() > 510)
+                        {
+                            Server::handeleDisconnect(current_fd);
+                            break;
+                        }
+                        Command msg = Parser.parse(line);
                         // message is ready to go to dispatcher
                     }
                     std::string &sendQueue = client[current_fd].getSendQueue();
