@@ -30,7 +30,7 @@ const std::string &Client::getHostname() const
     return hostname;
 }
 
-const int Client::getFd() const {
+int Client::getFd() const {
     return fd;
 }
 
@@ -66,19 +66,19 @@ void Client::setRegistered(bool value) {
     registerOk = value;
 }
 
-const bool Client::getPassOk() const{
+bool Client::getPassOk() const{
     return (passOk);
 }
 
-const bool Client::getNickOk() const{
+bool Client::getNickOk() const{
     return (nickOk);
 }
 
-const bool Client::getUserOk() const{
+bool Client::getUserOk() const{
     return (userOk);
 }
 
-const bool Client::isRegistered() const
+bool Client::isRegistered() const
 {
     return registerOk;
 }

@@ -6,7 +6,10 @@
 #include <string>
 #include <iostream>
 #include <sstream>
-#include "includes/Parser.hpp"  // to recognize command structure.
+#include "Server.hpp"
+#include "Client.hpp"
+#include "Dispatcher.hpp"
+#include "Parser.hpp"
 
 typedef void (*commandHandler)(Server& server, Client& client, Command& parsedMsg);
 

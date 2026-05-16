@@ -1,6 +1,8 @@
 #include "../includes/Server.hpp"
 #include "../includes/Parser.hpp"
 #include "../includes/Dispatcher.hpp"
+#include <cerrno>
+#include <cstdlib>
 
 std::string Server::get_password(){
     return(password);
@@ -25,7 +27,7 @@ void    Server::run()
 int    Server::acceptNewClient()
 {
     int new_fd = accept(serversocket, NULL, NULL);
-    client[new_fd] = Client(new_fd);
+    clientMap[new_fd] = Client(new_fd);
     return (new_fd);
 }
 
@@ -36,8 +38,8 @@ void    Server::handeleDisconnect(int fd)
     clientMap.erase(fd);
 }
 
-size_t Server::send_message(int fd, std::string &buf){
-    size_t send_size;
+ssize_t Server::send_message(int fd, std::string &buf){
+    ssize_t send_size;
 
     if (buf.empty())
         return(0);
@@ -105,14 +107,14 @@ void    Server::multiplexar()
                             Server::handeleDisconnect(current_fd);
                             break;
                         }
-                        Command msg = Parser.parse(line);
+                        Command msg = Parser::parse(line);
                         commandDispatcher cmdDispatcher;
                         // [obito] Here is the dispatcher:
-                        cmdDispatcher.routeCommand(this, clientMap[current_fd], msg);
+                        cmdDispatcher.routeCommand(*this, clientMap[current_fd], msg);
                     }
                     std::string &sendQueue = clientMap[current_fd].getSendQueue();
                     if (!sendQueue.empty()){
-                        if (Server::send_message(current_fd, sendQueue) != sendQueue.size()){
+                        if (Server::send_message(current_fd, sendQueue) != (ssize_t)sendQueue.size()){
                             struct epoll_event current_ev; 
                             current_ev.events = EPOLLIN | EPOLLOUT;
                             current_ev.data.fd = current_fd;
@@ -128,8 +130,9 @@ void    Server::multiplexar()
                 }
             }
             else if (event_buffer[i].events & EPOLLOUT) {
-                Server::send_message(current_fd, client[current_fd].getSendQueue());
-                if (client[current_fd].getSendQueue().empty()){
+                // [?] Shouldn't we check the return of send_message(), in case it fails? 
+                Server::send_message(current_fd, clientMap[current_fd].getSendQueue());
+                if (clientMap[current_fd].getSendQueue().empty()) {
                     struct epoll_event current_ev; 
                     current_ev.events = EPOLLIN;
                     current_ev.data.fd = current_fd;

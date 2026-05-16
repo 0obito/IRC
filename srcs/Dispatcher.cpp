@@ -10,9 +10,14 @@ commandDispatcher::commandDispatcher() {
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {
+    this->_handlers = other._handlers;
 }
 
 commandDispatcher& commandDispatcher::operator=(const commandDispatcher& other) {
+    if (this != &other) {
+        this->_handlers = other._handlers;
+    }
+    return *this;
 }
 
 commandDispatcher::~commandDispatcher() {

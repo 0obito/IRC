@@ -3,13 +3,57 @@
 #include "../includes/Server.hpp"
 #include "../includes/Utils.hpp"
 
+// an example for a welcoming sequence, might change a thing or two later
+// i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
+void welcomingSeq(Client& client, const std::string serverName) {
+    std::string nick = client.getNick();
+    std::string user = client.getUser();
+    std::string version = "0.1";
+    std::stringstream ss;
+
+    ss << ":" << serverName << " 001 " << nick;
+    ss << " :Welcome to our Internet Relay Network " << nick << "!" << user << "@127.0.0.1\r\n";
+
+    ss << ":" << serverName << " 002 " << nick;
+    ss << " :Your host is " << serverName << ", running version " << version << "\r\n";
+
+    ss << ":" << serverName << " 003 " << nick;
+    ss << " :This server was created f 3am lfil\r\n";
+
+    ss << ":" << serverName << " 004 " << nick;
+    ss << " " << serverName << " " << version << " io itkol\r\n";
+
+    ss << ":" << serverName << " 005 " << nick;
+    ss << " CHANTYPES=# CHANNELLEN=32 NICKLEN=9 NETWORK=OurNetwork :are supported by this server\r\n";
+
+    std::string finalMsg = ss.str();
+    client.getSendQueue() += finalMsg;
+    std::cout << finalMsg;
+    return ;
+}
+
+void registerClient(Client& client, const std::string serverName) {
+    if (!client.isRegistered()) {
+        if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
+            // turn on registration flag
+            client.setRegistered(true);
+            welcomingSeq(client, serverName);
+        }
+    }
+    return ;
+}
+
 void handleCAP(Server& server, Client& client, Command& parsedMsg) {
+    (void)parsedMsg;
     std::string reply = ":" + server.getServerName() + " CAP * LS :\r\n";
     client.getSendQueue() += reply;
     // std::cout << "CAP * LS :" << std::endl;
 }
 
 void handleQUIT(Server& server, Client& client, Command& parsedMsg) {
+    (void)server;
+    (void)client;
+    (void)parsedMsg;
     // later machi db, shouldn't take any time;
 }
 
@@ -120,44 +164,4 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
     client.setRealname(parsedMsg.params[3]);
     client.setUserOk(true);
     registerClient(client, serverName);
-}
-
-void registerClient(Client& client, const std::string serverName) {
-    if (!client.isRegistered()) {
-        if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
-            // turn on registration flag
-            client.setRegistered(true);
-            welcomingSeq(client, serverName);
-        }
-    }
-    return ;
-}
-
-// an example for a welcoming sequence, might change a thing or two later
-// i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
-void welcomingSeq(Client& client, const std::string serverName) {
-    std::string nick = client.getNick();
-    std::string user = client.getUser();
-    std::string version = "0.1";
-    std::stringstream ss;
-
-    ss << ":" << serverName << " 001 " << nick;
-    ss << " :Welcome to our Internet Relay Network " << nick << "!" << user << "@127.0.0.1\r\n";
-
-    ss << ":" << serverName << " 002 " << nick;
-    ss << " :Your host is " << serverName << ", running version " << version << "\r\n";
-
-    ss << ":" << serverName << " 003 " << nick;
-    ss << " :This server was created f 3am lfil\r\n";
-
-    ss << ":" << serverName << " 004 " << nick;
-    ss << " " << serverName << " " << version << " io itkol\r\n";
-
-    ss << ":" << serverName << " 005 " << nick;
-    ss << " CHANTYPES=# CHANNELLEN=32 NICKLEN=9 NETWORK=OurNetwork :are supported by this server\r\n";
-
-    std::string finalMsg = ss.str();
-    client.getSendQueue() += finalMsg;
-    std::cout << finalMsg;
-    return ;
 }

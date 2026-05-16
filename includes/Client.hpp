@@ -41,7 +41,7 @@ public:
     const std::string &getUser() const;
     const std::string &getRealname() const;
     const std::string &getHostname() const;
-    const int getFd() const;
+    int getFd() const;
 
     // identity setters
     void setNick(const std::string &n);
@@ -56,10 +56,10 @@ public:
     void setRegistered(bool value);
 
     // state getters
-    const bool getPassOk() const;
-    const bool getNickOk() const;
-    const bool getUserOk() const;
-    const bool isRegistered() const;
+    bool getPassOk() const;
+    bool getNickOk() const;
+    bool getUserOk() const;
+    bool isRegistered() const;
 
     // buffers
     std::string &getRecvBuf();
