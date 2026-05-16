@@ -27,7 +27,8 @@ void    Server::run()
 int    Server::acceptNewClient()
 {
     int new_fd = accept(serversocket, NULL, NULL);
-    clientMap[new_fd] = Client(new_fd);
+    // clientMap[new_fd] = Client(new_fd);                                                                          // not the correct way of using map
+    clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
     return (new_fd);
 }
 
@@ -74,6 +75,7 @@ void    Server::multiplexar()
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, -1);
         for (int i = 0; i < nfds; i++) {
             current_fd = event_buffer[i].data.fd;
+            std::map<int, Client>::iterator iter = clientMap.find(current_fd);
             if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
                 Server::handeleDisconnect(current_fd);
             }
@@ -90,7 +92,12 @@ void    Server::multiplexar()
                 ssize_t bytes = recv(current_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
                 if (bytes > 0)
                 {
-                    std::string &r_buf = clientMap[current_fd].getRecvBuf();
+                    if (iter == clientMap.end()) {
+                        std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
+                        // [?] need to handle error here (close the client or whatever)
+                    }
+                    /* std::string &r_buf = clientMap[current_fd].getRecvBuf(); */                                  // not the correct way of using map
+                    std::string &r_buf = iter->second.getRecvBuf();
                     r_buf.append(buffer, bytes);
                     if (r_buf.size() > 4096)
                     {
@@ -109,10 +116,11 @@ void    Server::multiplexar()
                         }
                         Command msg = Parser::parse(line);
                         commandDispatcher cmdDispatcher;
-                        // [obito] Here is the dispatcher:
-                        cmdDispatcher.routeCommand(*this, clientMap[current_fd], msg);
+                        // cmdDispatcher.routeCommand(*this, clientMap[current_fd], msg);                           // not the correct way of using map
+                        cmdDispatcher.routeCommand(*this, iter->second, msg);
                     }
-                    std::string &sendQueue = clientMap[current_fd].getSendQueue();
+                    // std::string &sendQueue = clientMap[current_fd].getSendQueue();                               // not the correct way of using map
+                    std::string &sendQueue = iter->second.getSendQueue();
                     if (!sendQueue.empty()){
                         if (Server::send_message(current_fd, sendQueue) != (ssize_t)sendQueue.size()){
                             struct epoll_event current_ev; 
@@ -130,10 +138,16 @@ void    Server::multiplexar()
                 }
             }
             else if (event_buffer[i].events & EPOLLOUT) {
-                // [?] Shouldn't we check the return of send_message(), in case it fails? 
-                Server::send_message(current_fd, clientMap[current_fd].getSendQueue());
-                if (clientMap[current_fd].getSendQueue().empty()) {
-                    struct epoll_event current_ev; 
+                if (iter == clientMap.end()) {
+                    std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
+                    // [?] need to handle error here (close the client or whatever)
+                }
+                // [?] Shouldn't we check the return of send_message() down here. In case it fails? 
+                // Server::send_message(current_fd, clientMap[current_fd].getSendQueue());                          // not the correct way of using map
+                Server::send_message(current_fd, iter->second.getSendQueue());
+                // if (clientMap[current_fd].getSendQueue().empty()) {                                              // not the correct way of using map
+                if (iter->second.getSendQueue().empty()) {
+                    struct epoll_event current_ev;
                     current_ev.events = EPOLLIN;
                     current_ev.data.fd = current_fd;
                     epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
@@ -148,6 +162,7 @@ Server::Server(int port_in, std::string pwd) {
     password = pwd;
     initserver();
     run();
+    multiplexar();
 }
 
 Server::Server(const Server& other) {
@@ -168,4 +183,10 @@ Server::~Server() {
 
 const std::string& Server::getServerName() const {
     return (serverName);
+}
+
+bool Server::isNicknameTaken(const std::string& nickname) const {
+    // [?] For Younes
+    (void)nickname;
+    return false;
 }
