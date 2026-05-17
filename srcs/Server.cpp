@@ -195,7 +195,7 @@ const std::string& Server::getServerName() const {
     return (serverName);
 }
 
-int Server::isNicknameTaken(const std::string& nickname) const {
+int Server::isNicknameTaken(std::string& nickname) {
     std::map<int, Client>::iterator it;
 
     for(it = clientMap.begin(); it != clientMap.end(); it++){
@@ -203,4 +203,8 @@ int Server::isNicknameTaken(const std::string& nickname) const {
             return(it->second.getFd());
     }
     return(-1);
+}
+
+std::map<int, Client>   &Server::mapGetter() {
+    return clientMap;
 }
