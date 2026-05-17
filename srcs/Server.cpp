@@ -3,6 +3,7 @@
 #include "../includes/Dispatcher.hpp"
 #include <cerrno>
 #include <cstdlib>
+#include <string.h>
 
 std::string Server::get_password(){
     return(password);
@@ -68,6 +69,7 @@ void    Server::multiplexar()
         std::cerr << "[ERROR] Creating an epoll instance has failed!" << std::endl;
         exit(1);
     }
+    memset(&ev, 0, sizeof(ev));
     ev.events = EPOLLIN;
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
@@ -86,6 +88,7 @@ void    Server::multiplexar()
                 std::cout << "new client: " << new_fd << std::endl;
                 if (new_fd != -1) {
                     struct epoll_event client_ev;
+                    memset(&client_ev, 0, sizeof(client_ev));
                     client_ev.events = EPOLLIN;
                     client_ev.data.fd = new_fd;
                     epoll_ctl(epfd, EPOLL_CTL_ADD, new_fd, &client_ev);
@@ -126,7 +129,8 @@ void    Server::multiplexar()
                     std::string &sendQueue = iter->second.getSendQueue();
                     if (!sendQueue.empty()){
                         if (Server::send_message(current_fd, sendQueue) != (ssize_t)sendQueue.size()){
-                            struct epoll_event current_ev; 
+                            struct epoll_event current_ev;
+                            memset(&current_ev, 0, sizeof(current_ev));
                             current_ev.events = EPOLLIN | EPOLLOUT;
                             current_ev.data.fd = current_fd;
                             epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
@@ -157,6 +161,7 @@ void    Server::multiplexar()
                 Server::send_message(current_fd, iter->second.getSendQueue());
                 if (iter->second.getSendQueue().empty()) {
                     struct epoll_event current_ev;
+                    memset(&current_ev, 0, sizeof(current_ev));
                     current_ev.events = EPOLLIN;
                     current_ev.data.fd = current_fd;
                     epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);

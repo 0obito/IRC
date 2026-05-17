@@ -2,6 +2,7 @@
 #include "../includes/DispatcherUtils.hpp"
 #include "../includes/Server.hpp"
 #include "../includes/Utils.hpp"
+#include <string.h>
 
 // an example for a welcoming sequence, might change a thing or two later
 // i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
@@ -196,12 +197,13 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
             // std::cout << "no nick to send to (999)" << std::endl;
             return ;
         }
-        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " + parsedMsg.command + " " + iter->second.getNick() + " :" + parsedMsg.params[1];
+        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " + parsedMsg.command + " " + iter->second.getNick() + " :" + parsedMsg.params[1] + "\r\n";
         iter->second.getSendQueue() += reply;
         struct epoll_event current_ev;
-        current_ev.events = EPOLLIN | EPOLLOUT;
-        current_ev.data.fd = client.getFd();
-        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, client.getFd(), &current_ev);
+        memset(&current_ev, 0, sizeof(current_ev));
+        current_ev.events = EPOLLOUT | EPOLLIN;
+        current_ev.data.fd = iter->first;
+        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
     }
     // reply = makeReply(serverName, 464, targetNick, "Password incorrect");
     // client.getSendQueue() += reply;
