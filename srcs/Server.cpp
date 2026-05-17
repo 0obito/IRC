@@ -156,12 +156,12 @@ void    Server::multiplexar()
                 // Server::send_message(current_fd, clientMap[current_fd].getSendQueue());                          // not the correct way of using map
                 Server::send_message(current_fd, iter->second.getSendQueue());
                 // if (clientMap[current_fd].getSendQueue().empty()) {                                              // not the correct way of using map
-                if (iter->second.getSendQueue().empty()) {
-                    struct epoll_event current_ev;
-                    current_ev.events = EPOLLIN;
-                    current_ev.data.fd = current_fd;
-                    epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
-                }
+                // if (iter->second.getSendQueue().empty()) {
+                //     struct epoll_event current_ev;
+                //     current_ev.events = EPOLLIN;
+                //     current_ev.data.fd = current_fd;
+                //     epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                // }
             }
         }
     }
