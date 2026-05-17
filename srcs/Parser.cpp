@@ -18,9 +18,9 @@ Command Parser::parse(const std::string &line)
         ss >> cmd.command;
         cmd.command = toUpper(cmd.command);
     }
-    else
+    else if (!token.empty() && token[0] != ':')
     {
-        cmd.command = toUpper(cmd.command);
+        cmd.command = toUpper(token);
     }
 
     while (ss >> token)

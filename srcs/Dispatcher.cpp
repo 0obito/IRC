@@ -7,6 +7,7 @@ commandDispatcher::commandDispatcher() {
     _handlers["PASS"] = &handlePASS;
     _handlers["NICK"] = &handleNICK;
     _handlers["USER"] = &handleUSER;
+    _handlers["PRIVMSG"] = &handlePRIVMSG;
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {
@@ -32,7 +33,7 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
         std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
         std::string serverName = server.getServerName();
         std::string reply;
-
+        
         reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
         client.getSendQueue() += reply;
         // std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
