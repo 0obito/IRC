@@ -121,7 +121,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     if (client.getNickOk() && client.getNick() == nickName) {
         return ;
     }
-    if (server.isNicknameTaken(nickName)) {
+    if (server.isNicknameTaken(nickName) != -1) {
         reply = makeReply(serverName, 433, targetNick, "Nickname is already in use", nickName);
         client.getSendQueue() += reply;
         // std::cout << "ERR_NICKNAMEINUSE (433)" << std::endl;
@@ -186,8 +186,21 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
         // std::cout << "no nick to send to (999)" << std::endl;
         return ;
     }
-    reply = makeReply(serverName, 464, targetNick, "Password incorrect");
-    client.getSendQueue() += reply;
+    int to_fd = server.isNicknameTaken(parsedMsg.params[0]);
+    if (to_fd != -1) {
+        std::map<int, Client>::iterator iter = server.mapGetter().find(to_fd);
+        if (iter == server.mapGetter().end()) {
+            // reply = makeReply(serverName, 999, targetNick, "No nick to send to");
+            reply = makeReply(parsedMsg.params[0], 999, targetNick, "No nick to send to");
+            client.getSendQueue() += reply;
+            // std::cout << "no nick to send to (999)" << std::endl;
+            return ;
+        }
+        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " + parsedMsg.command + " " + iter->second.getNick() + " :" + parsedMsg.params[1];
+        iter->second.getSendQueue() += reply;
+    }
+    // reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+    // client.getSendQueue() += reply;
     // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
     return ;
 }
