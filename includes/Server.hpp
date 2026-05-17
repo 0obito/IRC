@@ -29,6 +29,7 @@ public:
 
     std::string get_password();
     const std::string& getServerName() const;
+    int         get_epfd() const;
     void        handeleDisconnect(int fd);
     int         isNicknameTaken(std::string& nickname);
     void        initserver();

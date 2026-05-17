@@ -198,6 +198,10 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
         }
         reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " + parsedMsg.command + " " + iter->second.getNick() + " :" + parsedMsg.params[1];
         iter->second.getSendQueue() += reply;
+        struct epoll_event current_ev;
+        current_ev.events = EPOLLIN | EPOLLOUT;
+        current_ev.data.fd = client.getFd();
+        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, client.getFd(), &current_ev);
     }
     // reply = makeReply(serverName, 464, targetNick, "Password incorrect");
     // client.getSendQueue() += reply;
