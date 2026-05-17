@@ -28,7 +28,7 @@ void welcomingSeq(Client& client, const std::string serverName) {
 
     std::string finalMsg = ss.str();
     client.getSendQueue() += finalMsg;
-    std::cout << finalMsg;
+    // std::cout << finalMsg;
     return ;
 }
 
@@ -44,9 +44,11 @@ void registerClient(Client& client, const std::string serverName) {
 }
 
 void handleCAP(Server& server, Client& client, Command& parsedMsg) {
+    (void)server;
+    (void)client;
     (void)parsedMsg;
-    std::string reply = ":" + server.getServerName() + " CAP * LS :\r\n";
-    client.getSendQueue() += reply;
+    // std::string reply = ":" + server.getServerName() + " CAP * LS :\r\n";
+    // client.getSendQueue() += reply;
     // std::cout << "CAP * LS :" << std::endl;
 }
 
@@ -164,4 +166,28 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
     client.setRealname(parsedMsg.params[3]);
     client.setUserOk(true);
     registerClient(client, serverName);
+}
+
+void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
+    if (parsedMsg.params.empty()) {
+        reply = makeReply(serverName, 412, targetNick, "No text to send");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NOTEXTTOSEND (412)" << std::endl;
+        return ;
+    }
+    size_t params_num = parsedMsg.params.size();
+    if (params_num < 2) {
+        reply = makeReply(serverName, 999, targetNick, "No nick to send to");
+        client.getSendQueue() += reply;
+        // std::cout << "no nick to send to (999)" << std::endl;
+        return ;
+    }
+    reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+    client.getSendQueue() += reply;
+    // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
+    return ;
 }

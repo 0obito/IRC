@@ -73,16 +73,19 @@ void    Server::multiplexar()
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
     while(true) {
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, -1);
+        std::cout << "fds: " << nfds << std::endl;
         for (int i = 0; i < nfds; i++) {
             current_fd = event_buffer[i].data.fd;
+            std::cout << "current fd: " << current_fd << std::endl;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
             if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
                 Server::handeleDisconnect(current_fd);
             }
             else if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
-                if (new_fd != -1){
-                    struct epoll_event client_ev; 
+                std::cout << "new client: " << new_fd << std::endl;
+                if (new_fd != -1) {
+                    struct epoll_event client_ev;
                     client_ev.events = EPOLLIN;
                     client_ev.data.fd = new_fd;
                     epoll_ctl(epfd, EPOLL_CTL_ADD, new_fd, &client_ev);
@@ -130,8 +133,9 @@ void    Server::multiplexar()
                         }
                     }
                 }
-                else if (bytes == 0)
+                else if (bytes == 0) {
                     Server::handeleDisconnect(current_fd);
+                }
                 else {
                     if (errno != EAGAIN && errno != EWOULDBLOCK)
                         Server::handeleDisconnect(current_fd);
