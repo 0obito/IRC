@@ -30,12 +30,12 @@ public:
     std::string get_password();
     const std::string& getServerName() const;
     void        handeleDisconnect(int fd);
-    bool        isNicknameTaken(const std::string& nickname) const;
+    int         isNicknameTaken(const std::string& nickname) const;
     void        initserver();
     void        run();
     void        multiplexar();
     int         acceptNewClient();
-    ssize_t      send_message(int fd, std::string &buf);
+    ssize_t     send_message(int fd, std::string &buf);
 };
 
 #endif

@@ -189,8 +189,12 @@ const std::string& Server::getServerName() const {
     return (serverName);
 }
 
-bool Server::isNicknameTaken(const std::string& nickname) const {
-    // [?] For Younes
-    (void)nickname;
-    return false;
+int Server::isNicknameTaken(const std::string& nickname) const {
+    std::map<int, Client>::iterator it;
+
+    for(it = clientMap.begin(); it != clientMap.end(); it++){
+        if (it->second.getNick() == nickname)
+            return(it->second.getFd());
+    }
+    return(-1);
 }
