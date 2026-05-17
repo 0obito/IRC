@@ -129,6 +129,12 @@ void    Server::multiplexar()
                             epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
                         }
                     }
+                    else {
+                            struct epoll_event current_ev; 
+                            current_ev.events = EPOLLIN | EPOLLOUT;
+                            current_ev.data.fd = current_fd;
+                            epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                    }
                 }
                 else if (bytes == 0)
                     Server::handeleDisconnect(current_fd);
