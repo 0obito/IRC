@@ -74,18 +74,19 @@ void    Server::multiplexar()
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
     while(true) {
-        nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, -1);
-        std::cout << "fds: " << nfds << std::endl;
+        //  made a change here. timeout before = -1, timeout now = 1000
+        nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, 1000);
+        // std::cout << "fds: " << nfds << std::endl;
         for (int i = 0; i < nfds; i++) {
             current_fd = event_buffer[i].data.fd;
-            std::cout << "current fd: " << current_fd << std::endl;
+            // std::cout << "current fd: " << current_fd << std::endl;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
             if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
                 Server::handeleDisconnect(current_fd);
             }
             else if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
-                std::cout << "new client: " << new_fd << std::endl;
+                // std::cout << "new client: " << new_fd << std::endl;
                 if (new_fd != -1) {
                     struct epoll_event client_ev;
                     memset(&client_ev, 0, sizeof(client_ev));
@@ -102,6 +103,7 @@ void    Server::multiplexar()
                         std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
                         // [?] need to handle error here (close the client or whatever)
                     }
+                    iter->second.updateActivity();
                     /* std::string &r_buf = clientMap[current_fd].getRecvBuf(); */                                  // not the correct way of using map
                     std::string &r_buf = iter->second.getRecvBuf();
                     r_buf.append(buffer, bytes);
@@ -168,12 +170,50 @@ void    Server::multiplexar()
                 }
             }
         }
+        // all added by me obito :p
+        /*      from this line      */
+        static time_t lastSweep = time(NULL);
+        time_t now = time(NULL);
+
+        if (now - lastSweep >= 10) {
+            lastSweep = now;
+            for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); ++it) {
+                Client& cl = it->second;
+                int idleTime = now - cl.getLastActivity();
+                if (idleTime > 60 && !cl.isWaitingForPong()) {
+                    std::string pingMsg = "PING :keepalive\r\n";
+                    cl.getSendQueue() += pingMsg;
+                    cl.setWaitingForPong(true);
+                    struct epoll_event current_ev;
+                    memset(&current_ev, 0, sizeof(current_ev));
+                    current_ev.events = EPOLLOUT | EPOLLIN;
+                    current_ev.data.fd = client.getFd();
+                    epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, client.getFd(), &current_ev);
+
+                }
+                else if (idleTime > 120) {
+                    std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
+                    std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
+                    std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
+                    std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
+
+                    // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
+                    /*broadcastClientGone(it->first);*/
+                    // Flag them for deletion / close socket. Will ask younes about it later.
+                    /*disconnectClient(it->first);*/
+                    Server::handeleDisconnect(cl.getFd());
+                    std::cout << "client with fd " << cl.getFd() << " is gone!" << std::endl;
+                }
+            }
+        }
+        /*      to this line      */
     }
 }
 
 Server::Server(int port_in, std::string pwd) {
     port = port_in;
     password = pwd;
+    serverName = "ircDyalna";
     initserver();
     run();
     multiplexar();

@@ -14,5 +14,7 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg);
 void handleNICK(Server& server, Client& client, Command& parsedMsg);
 void handleUSER(Server& server, Client& client, Command& parsedMsg);
 void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg);
+void handlePING(Server& server, Client& client, Command& parsedMsg);
+// void handlePONG(Server& server, Client& client, Command& parsedMsg);
 
 #endif

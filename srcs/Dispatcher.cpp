@@ -8,6 +8,8 @@ commandDispatcher::commandDispatcher() {
     _handlers["NICK"] = &handleNICK;
     _handlers["USER"] = &handleUSER;
     _handlers["PRIVMSG"] = &handlePRIVMSG;
+    _handlers["PING"] = &handlePING;
+    // _handlers["PONG"] = &handlePONG;
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {
