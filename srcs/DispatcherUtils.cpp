@@ -179,45 +179,86 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
+    if (!client.isRegistered()) {
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NOTREGISTERED (451)" << std::endl;
+        return ;
+    }
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 412, targetNick, "No text to send");
+        reply = makeReply(serverName, 411, senderNick, "No recipient given (PRIVMSG)");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NORECIPIENT (411)" << std::endl;
+        return ;
+    }
+    if (parsedMsg.params.size() < 2) {
+        reply = makeReply(serverName, 412, senderNick, "No text to send");
         client.getSendQueue() += reply;
         // std::cout << "ERR_NOTEXTTOSEND (412)" << std::endl;
         return ;
     }
-    size_t params_num = parsedMsg.params.size();
-    if (params_num < 2) {
-        reply = makeReply(serverName, 999, targetNick, "No nick to send to");
+    if (parsedMsg.params.size() > 2) {
+        reply = makeReply(serverName, 461, senderNick, "Syntax error", parsedMsg.command);
         client.getSendQueue() += reply;
-        // std::cout << "no nick to send to (999)" << std::endl;
+        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
-    int to_fd = server.isNicknameTaken(parsedMsg.params[0]);
-    if (to_fd != -1) {
-        std::map<int, Client>::iterator iter = server.mapGetter().find(to_fd);
-        if (iter == server.mapGetter().end()) {
-            // reply = makeReply(serverName, 999, targetNick, "No nick to send to");
-            reply = makeReply(parsedMsg.params[0], 999, targetNick, "No nick to send to");
+
+    std::string rawTargets = parsedMsg.params[0];
+    std::string messageText = parsedMsg.params[1];
+    std::stringstream ss(rawTargets);
+    std::string singleTarget;
+
+    while (std::getline(ss, singleTarget, ',')) {
+        int targetFD = server.isNicknameTaken(singleTarget);
+        if (targetFD == -1) {
+            reply = makeReply(serverName, 401, senderNick, "No such nick/channel", singleTarget);
             client.getSendQueue() += reply;
-            // std::cout << "no nick to send to (999)" << std::endl;
-            return ;
+            continue ;
         }
-        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " + parsedMsg.command + " " + iter->second.getNick() + " :" + parsedMsg.params[1] + "\r\n";
-        iter->second.getSendQueue() += reply;
-        struct epoll_event current_ev;
-        memset(&current_ev, 0, sizeof(current_ev));
-        current_ev.events = EPOLLOUT | EPOLLIN;
-        current_ev.data.fd = iter->first;
-        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+        std::map<int, Client>::iterator iter = server.mapGetter().find(targetFD);
+        if (iter != server.mapGetter().end()) {
+            reply = ":" + client.getNick() + "!" + client.getUser() + "@localhost " 
+                    + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
+            iter->second.getSendQueue() += reply;
+            struct epoll_event current_ev;
+            memset(&current_ev, 0, sizeof(current_ev));
+            current_ev.events = EPOLLOUT | EPOLLIN;
+            current_ev.data.fd = iter->first;
+            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+        }
     }
-    // reply = makeReply(serverName, 464, targetNick, "Password incorrect");
-    // client.getSendQueue() += reply;
-    // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
-    return ;
+}
+
+void handleNOTICE(Server& server, Client& client, Command& parsedMsg) {
+    if (!client.isRegistered() || parsedMsg.params.size() != 2) {
+        return ;
+    }
+    std::string rawTargets = parsedMsg.params[0];
+    std::string messageText = parsedMsg.params[1];
+    std::stringstream ss(rawTargets);
+    std::string singleTarget;
+    while (std::getline(ss, singleTarget, ',')) {
+        int targetFD = server.isNicknameTaken(singleTarget);
+        if (targetFD == -1) {
+            continue;
+        }
+        std::map<int, Client>::iterator iter = server.mapGetter().find(targetFD);
+        if (iter != server.mapGetter().end()) {
+            std::string reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 NOTICE " 
+                    + iter->second.getNick() + " :" + messageText + "\r\n";
+            iter->second.getSendQueue() += reply;
+            struct epoll_event current_ev;
+            memset(&current_ev, 0, sizeof(current_ev));
+            current_ev.events = EPOLLOUT | EPOLLIN;
+            current_ev.data.fd = iter->first;
+            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+        }
+    }
 }
 
 void handlePING(Server& server, Client& client, Command& parsedMsg) {
@@ -266,7 +307,6 @@ void handlePONG(Server& server, Client& client, Command& parsedMsg) {
         return ;
     }
     if (parsedMsg.params.size() > 2) {
-        //  response format:
         //  :irc.example.net 461 a pong :Syntax error
         reply = makeReply(serverName, 461, targetNick, "Syntax error", parsedMsg.command);
         client.getSendQueue() += reply;
