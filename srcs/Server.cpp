@@ -187,8 +187,8 @@ void    Server::multiplexar()
                     struct epoll_event current_ev;
                     memset(&current_ev, 0, sizeof(current_ev));
                     current_ev.events = EPOLLOUT | EPOLLIN;
-                    current_ev.data.fd = client.getFd();
-                    epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, client.getFd(), &current_ev);
+                    current_ev.data.fd = cl.getFd();
+                    epoll_ctl(get_epfd(), EPOLL_CTL_MOD, cl.getFd(), &current_ev);
 
                 }
                 else if (idleTime > 120) {
