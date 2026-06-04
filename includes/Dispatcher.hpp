@@ -8,7 +8,7 @@
 #include <sstream>
 #include "Server.hpp"
 #include "Client.hpp"
-#include "Dispatcher.hpp"
+#include "DispatcherUtils.hpp"
 #include "Parser.hpp"
 
 typedef void (*commandHandler)(Server& server, Client& client, Command& parsedMsg);

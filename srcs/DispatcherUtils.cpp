@@ -248,20 +248,29 @@ void handlePING(Server& server, Client& client, Command& parsedMsg) {
     ss << ":" << serverName << " PONG " << serverName << " :" << parsedMsg.params[0] << "\r\n";
     reply = ss.str();
     client.getSendQueue() += reply;
-
-    // struct epoll_event current_ev;
-    // memset(&current_ev, 0, sizeof(current_ev));
-    // current_ev.events = EPOLLOUT | EPOLLIN;
-    // current_ev.data.fd = client.getFd();
-    // epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, client.getFd(), &current_ev);
-
     return ;
 }
 
-// void handlePONG(Server& server, Client& client, Command& parsedMsg) {
-//     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
-//     std::string serverName = server.getServerName();
-//     std::string reply;
+void handlePONG(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
 
-
-// }
+    if (!client.isRegistered()) {
+        return ;
+    }
+    if (parsedMsg.params.empty()) {
+        reply = makeReply(serverName, 409, targetNick, "No origin specified");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NOORIGIN (409)" << std::endl;
+        return ;
+    }
+    if (parsedMsg.params.size() > 2) {
+        //  response format:
+        //  :irc.example.net 461 a pong :Syntax error
+        reply = makeReply(serverName, 461, targetNick, "Syntax error", parsedMsg.command);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
+        return ;
+    }
+}

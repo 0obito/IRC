@@ -9,7 +9,7 @@ commandDispatcher::commandDispatcher() {
     _handlers["USER"] = &handleUSER;
     _handlers["PRIVMSG"] = &handlePRIVMSG;
     _handlers["PING"] = &handlePING;
-    // _handlers["PONG"] = &handlePONG;
+    _handlers["PONG"] = &handlePONG;
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {
@@ -32,10 +32,13 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
         func(server, client, parsedMsg);
     }
     else {
+        if (!client.isRegistered()) {
+            return ;
+        }
         std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
         std::string serverName = server.getServerName();
         std::string reply;
-        
+
         reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
         client.getSendQueue() += reply;
         // std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
