@@ -3,6 +3,7 @@
 #include "../includes/Server.hpp"
 #include "../includes/Utils.hpp"
 #include <string.h>
+#include <sstream>
 
 // an example for a welcoming sequence, might change a thing or two later
 // i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
@@ -82,6 +83,7 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
         return ;
     }
     else {
+        client.setPassOk(false);
         reply = makeReply(serverName, 464, targetNick, "Password incorrect");
         client.getSendQueue() += reply;
         // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
@@ -118,6 +120,13 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
         // std::cout << "ERR_NONICKNAMEGIVEN (431)" << std::endl;
         return ;
     }
+    if (parsedMsg.params.size() > 1) {
+        //  nick has more than 1 param
+        reply = makeReply(serverName, 461, targetNick, "Syntax error", parsedMsg.command);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
+        return ;
+    }
     std::string nickName = parsedMsg.params[0];
     if (client.getNickOk() && client.getNick() == nickName) {
         return ;
@@ -129,7 +138,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
         return ;
     }
     if (!nickIsValid(nickName)) {
-        reply = makeReply(serverName, 433, targetNick, "Erroneous nickname", nickName);
+        reply = makeReply(serverName, 432, targetNick, "Erroneous nickname", nickName);
         client.getSendQueue() += reply;
         // std::cout << "ERR_ERRONEUSNICKNAME (432)" << std::endl;
         return ;
@@ -210,3 +219,49 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
     // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
     return ;
 }
+
+void handlePING(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
+    if (!client.isRegistered()) {
+        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NOTREGISTERED (451)" << std::endl;
+        return ;
+    }
+    if (parsedMsg.params.empty()) {
+        reply = makeReply(serverName, 409, targetNick, "No origin specified");
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NOORIGIN (409)" << std::endl;
+        return ;
+    }
+    if (parsedMsg.params.size() > 1 && parsedMsg.params[1] != serverName) {
+        reply = makeReply(serverName, 402, targetNick, "No such server", parsedMsg.params[1]);
+        client.getSendQueue() += reply;
+        // std::cout << "ERR_NOSUCHSERVER (402)" << std::endl;
+        return ;
+    }
+
+    std::stringstream ss;
+    ss << ":" << serverName << " PONG " << serverName << " :" << parsedMsg.params[0] << "\r\n";
+    reply = ss.str();
+    client.getSendQueue() += reply;
+
+    // struct epoll_event current_ev;
+    // memset(&current_ev, 0, sizeof(current_ev));
+    // current_ev.events = EPOLLOUT | EPOLLIN;
+    // current_ev.data.fd = client.getFd();
+    // epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, client.getFd(), &current_ev);
+
+    return ;
+}
+
+// void handlePONG(Server& server, Client& client, Command& parsedMsg) {
+//     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+//     std::string serverName = server.getServerName();
+//     std::string reply;
+
+
+// }

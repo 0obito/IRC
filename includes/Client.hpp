@@ -3,6 +3,7 @@
 
 #include <string>
 #include <set>
+#include <ctime>
 
 /*
  * Client class
@@ -31,6 +32,9 @@ private:
     std::string sendQueue;
 
     std::set<std::string> channels;
+
+    time_t  lastActivity;
+    bool    waitingForPong;
 
 public:
     Client(int fd);
@@ -69,6 +73,11 @@ public:
     void joinChannel(const std::string &name);
     void leaveChannel(const std::string &name);
     bool isInChannel(const std::string &name) const;
+
+    void    updateActivity();
+    time_t  getLastActivity() const;
+    bool    isWaitingForPong() const;
+    void    setWaitingForPong(bool status);
 };
 
 #endif

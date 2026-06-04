@@ -1,13 +1,16 @@
 #include "../includes/Client.hpp"
 #include "../includes/Utils.hpp"
+#include <ctime>
 
 Client::Client(int fd)
     : fd(fd),
       passOk(false),
       nickOk(false),
       userOk(false),
-      registerOk(false)
+      registerOk(false),
+      waitingForPong(false)
 {
+    lastActivity = time(NULL);
 }
 
 Client::~Client() {}
@@ -104,4 +107,21 @@ void Client::leaveChannel(const std::string &name)
 bool Client::isInChannel(const std::string &name) const
 {
     return channels.find(toLower(name)) != channels.end();
+}
+
+void Client::updateActivity() {
+    lastActivity = time(NULL);
+    waitingForPong = false;
+}
+
+time_t Client::getLastActivity() const {
+    return lastActivity;
+}
+
+bool Client::isWaitingForPong() const {
+    return waitingForPong;
+}
+
+void Client::setWaitingForPong(bool status) {
+    waitingForPong = status;
 }
