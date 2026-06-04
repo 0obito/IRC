@@ -79,14 +79,14 @@ void    Server::multiplexar()
         // std::cout << "fds: " << nfds << std::endl;
         for (int i = 0; i < nfds; i++) {
             current_fd = event_buffer[i].data.fd;
-            // std::cout << "current fd: " << current_fd << std::endl;
+            std::cout << "current fd: " << current_fd << std::endl;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
             if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
                 Server::handeleDisconnect(current_fd);
             }
             else if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
-                // std::cout << "new client: " << new_fd << std::endl;
+                std::cout << "new client: " << new_fd << std::endl;
                 if (new_fd != -1) {
                     struct epoll_event client_ev;
                     memset(&client_ev, 0, sizeof(client_ev));
@@ -177,7 +177,8 @@ void    Server::multiplexar()
 
         if (now - lastSweep >= 10) {
             lastSweep = now;
-            for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); ++it) {
+            for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); it++) {
+                std::cout << "///////-->" << it->second.getNick() << std::endl;
                 Client& cl = it->second;
                 int idleTime = now - cl.getLastActivity();
                 if (idleTime > 60 && !cl.isWaitingForPong()) {
@@ -192,6 +193,7 @@ void    Server::multiplexar()
 
                 }
                 else if (idleTime > 120) {
+                    int fd = cl.getFd();
                     std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
                     std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
                     std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
@@ -202,7 +204,8 @@ void    Server::multiplexar()
                     // Flag them for deletion / close socket. Will ask younes about it later.
                     /*disconnectClient(it->first);*/
                     Server::handeleDisconnect(cl.getFd());
-                    std::cout << "client with fd " << cl.getFd() << " is gone!" << std::endl;
+                    std::cout << "client with fd " << fd << " is gone!" << std::endl;
+                    break;
                 }
             }
         }
