@@ -183,7 +183,6 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
     std::string serverName = server.getServerName();
     std::string reply;
 
-    //  :irc.example.net 451 * :Connection not registered
     if (!client.isRegistered()) {
         reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
@@ -219,12 +218,39 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
         if (targetFD == -1) {
             reply = makeReply(serverName, 401, senderNick, "No such nick/channel", singleTarget);
             client.getSendQueue() += reply;
-            continue;
+            continue ;
         }
         std::map<int, Client>::iterator iter = server.mapGetter().find(targetFD);
         if (iter != server.mapGetter().end()) {
             reply = ":" + client.getNick() + "!" + client.getUser() + "@localhost " 
                     + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
+            iter->second.getSendQueue() += reply;
+            struct epoll_event current_ev;
+            memset(&current_ev, 0, sizeof(current_ev));
+            current_ev.events = EPOLLOUT | EPOLLIN;
+            current_ev.data.fd = iter->first;
+            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+        }
+    }
+}
+
+void handleNOTICE(Server& server, Client& client, Command& parsedMsg) {
+    if (!client.isRegistered() || parsedMsg.params.size() != 2) {
+        return ;
+    }
+    std::string rawTargets = parsedMsg.params[0];
+    std::string messageText = parsedMsg.params[1];
+    std::stringstream ss(rawTargets);
+    std::string singleTarget;
+    while (std::getline(ss, singleTarget, ',')) {
+        int targetFD = server.isNicknameTaken(singleTarget);
+        if (targetFD == -1) {
+            continue;
+        }
+        std::map<int, Client>::iterator iter = server.mapGetter().find(targetFD);
+        if (iter != server.mapGetter().end()) {
+            std::string reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 NOTICE " 
+                    + iter->second.getNick() + " :" + messageText + "\r\n";
             iter->second.getSendQueue() += reply;
             struct epoll_event current_ev;
             memset(&current_ev, 0, sizeof(current_ev));
