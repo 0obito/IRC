@@ -35,6 +35,7 @@ public:
     void        initserver();
     void        run();
     void        multiplexar();
+    void        pingPong();
     int         acceptNewClient();
     ssize_t     send_message(int fd, std::string &buf);
     std::map<int, Client>    &mapGetter();
