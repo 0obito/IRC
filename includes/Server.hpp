@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <map>
 #include "Client.hpp"
+#include "Channel.hpp"
 
 class Server {
 private:
@@ -20,6 +21,7 @@ private:
     std::string             password;
     std::map<int, Client>   clientMap;
     std::string             serverName;
+    std::map<std::string, Channel*> _channels;
 
 public:
     Server(int port_in, std::string pwd);
@@ -38,6 +40,9 @@ public:
     int         acceptNewClient();
     ssize_t     send_message(int fd, std::string &buf);
     std::map<int, Client>    &mapGetter();
+    Channel* getChannel(const std::string& name);
+    void addChannel(Channel* channel);
+    const std::map<std::string, Channel*>& getChannels() const;
 };
 
 #endif
