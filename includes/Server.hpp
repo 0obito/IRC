@@ -43,6 +43,7 @@ public:
     Channel* getChannel(const std::string& name);
     void addChannel(Channel* channel);
     const std::map<std::string, Channel*>& getChannels() const;
+    void removeChannel(const std::string& name);
 };
 
 #endif
