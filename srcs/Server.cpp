@@ -1,6 +1,7 @@
 #include "../includes/Server.hpp"
 #include "../includes/Parser.hpp"
 #include "../includes/Dispatcher.hpp"
+#include "../includes/Utils.hpp"
 #include <cerrno>
 #include <cstdlib>
 #include <string.h>
@@ -252,4 +253,27 @@ int Server::get_epfd() const {
 
 std::map<int, Client>   &Server::mapGetter() {
     return clientMap;
+}
+
+Channel* Server::getChannel(const std::string& name) {
+    std::map<std::string, Channel*>::iterator it = _channels.find(name);
+    if (it != _channels.end())
+        return it->second;
+    return NULL;
+}
+
+void Server::addChannel(Channel* channel) {
+    _channels[channel->getName()] = channel;
+}
+
+const std::map<std::string, Channel*>& Server::getChannels() const {
+    return _channels;
+}
+
+void Server::removeChannel(const std::string& name) {
+    std::string lowerName = toLower(name);
+    std::map<std::string, Channel*>::iterator it = _channels.find(lowerName);
+    if (it != _channels.end()) {
+        _channels.erase(it);
+    }
 }
