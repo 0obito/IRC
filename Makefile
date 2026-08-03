@@ -1,6 +1,6 @@
 # Options
 COMPILER = c++
-FLAGS    = -Wall -Wextra -Werror -g3 -std=c++98
+FLAGS    = -Wall -Wextra -Werror -g -std=c++98
 OBJ_dir  = objs/
 SRC_dir  = srcs/
 

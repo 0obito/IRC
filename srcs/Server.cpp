@@ -2,22 +2,114 @@
 #include "../includes/Parser.hpp"
 #include "../includes/Dispatcher.hpp"
 #include "../includes/Utils.hpp"
-#include <cerrno>
-#include <cstdlib>
-#include <string.h>
 
-std::string Server::get_password(){
+// canonical form
+Server::Server(int port_in, std::string pwd) {
+    port = port_in;
+    password = pwd;
+    serverName = "ircDyalna";
+    initserver();
+    run();
+    multiplexar();
+}
+
+// [??? I think we need to make these private, they don't make sense and no need for them anyways.
+// Server::Server(const Server& other) {
+//     *this = other;
+// }
+
+// [??? const is probably wrong here]
+// [??? I think we need to make these private, they don't make sense and no need for them anyways.
+// const Server& Server::operator=(const Server& other) {
+//     if (this == &other)
+//         return(*this);
+//     port = other.port;
+//     password = other.password;
+//     return(*this);
+// }
+
+const Server& Server::operator=(const Server& other) {
+    (void)other;
+    return *this;
+}
+
+
+Server::~Server() {
+    close(serversocket);
+}
+
+// getters
+const std::string&                      Server::getServerName() const {
+    return (serverName);
+}
+
+// [??? a whole copy is returned here, a const ref could be better]
+std::string                             Server::get_password() {
     return(password);
 }
 
-void Server::initserver()
+const std::map<std::string, Channel*>&  Server::getChannels() const {
+    return _channels;
+}
+
+int                                     Server::get_epfd() const {
+    return epfd;
+}
+
+std::map<int, Client>&                  Server::mapGetter() {
+    return clientMap;
+}
+
+Channel*                                Server::getChannel(const std::string& name) {
+    std::map<std::string, Channel*>::iterator it = _channels.find(name);
+    if (it != _channels.end())
+        return it->second;
+    return NULL;
+}
+
+
+// bool getters
+int             Server::isNicknameTaken(std::string& nickname) {
+    std::map<int, Client>::iterator it;
+
+    for(it = clientMap.begin(); it != clientMap.end(); it++){
+        if (it->second.getNick() == nickname)
+            return(it->second.getFd());
+    }
+    return(-1);
+}
+
+
+// modifiers
+int             Server::acceptNewClient() {
+    int new_fd = accept(serversocket, NULL, NULL);
+    // clientMap[new_fd] = Client(new_fd);                                                                          // not the correct way of using map
+    clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
+    return (new_fd);
+}
+
+void            Server::addChannel(Channel* channel) {
+    _channels[channel->getName()] = channel;
+}
+
+void            Server::removeChannel(const std::string& name) {
+    std::string lowerName = toLower(name);
+    std::map<std::string, Channel*>::iterator it = _channels.find(lowerName);
+    if (it != _channels.end()) {
+        _channels.erase(it);
+    }
+}
+
+
+// other
+void            Server::initserver()
 {
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = INADDR_ANY;
 }
 
-void    Server::run()
+void            Server::run()
 {
     serversocket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     int opt = 1;
@@ -26,22 +118,14 @@ void    Server::run()
     listen(serversocket, SOMAXCONN);
 }
 
-int    Server::acceptNewClient()
-{
-    int new_fd = accept(serversocket, NULL, NULL);
-    // clientMap[new_fd] = Client(new_fd);                                                                          // not the correct way of using map
-    clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
-    return (new_fd);
-}
-
-void    Server::handeleDisconnect(int fd)
+void            Server::handeleDisconnect(int fd)
 {
     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
     close(fd);
     clientMap.erase(fd);
 }
 
-ssize_t Server::send_message(int fd, std::string &buf){
+ssize_t         Server::send_message(int fd, std::string &buf){
     ssize_t send_size;
 
     if (buf.empty())
@@ -56,7 +140,7 @@ ssize_t Server::send_message(int fd, std::string &buf){
     return (send_size);
 }
 
-void    Server::pingPong() {
+void            Server::pingPong() {
     static time_t lastSweep = time(NULL);
     time_t now = time(NULL);
     if (now - lastSweep >= 10) {
@@ -93,18 +177,20 @@ void    Server::pingPong() {
     }
 }
 
-void    Server::multiplexar()
+void            Server::multiplexar()
 {
-    struct epoll_event      ev;
+    char                    buffer[1024];
     int                     nfds;
     int                     new_fd;
     int                     current_fd;
-    char                    buffer[1024];
     size_t                  position;
+    struct epoll_event      ev;
 
+    // [??? why use epoll_create1() and not epoll_create()]
     epfd = epoll_create1(0);
     if (epfd < 0) {
         std::cerr << "[ERROR] Creating an epoll instance has failed!" << std::endl;
+        // [??? how about cleaning? if there's any]
         exit(1);
     }
     memset(&ev, 0, sizeof(ev));
@@ -112,10 +198,17 @@ void    Server::multiplexar()
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
     while(true) {
-        //  made a change here. timeout before = -1, timeout now = 1000
+        // made a change here. timeout before = -1, timeout now = 1000
+        // [??? I need to check if 1000ms makes sense, or is it waking up the server so fast?]
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, 1000);
         // std::cout << "fds: " << nfds << std::endl;
         for (int i = 0; i < nfds; i++) {
+            //
+            for (std::map<int, Client>::iterator iii = clientMap.begin(); iii != clientMap.end(); iii++) {
+                std::cout << iii->second.getFd() << ", ";
+            }
+            std::cout << std::endl;
+            //
             current_fd = event_buffer[i].data.fd;
             std::cout << "current fd: " << current_fd << std::endl;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
@@ -205,75 +298,5 @@ void    Server::multiplexar()
         // all added by me obito :p
         /*      from this line      */
         pingPong();
-    }
-}
-
-Server::Server(int port_in, std::string pwd) {
-    port = port_in;
-    password = pwd;
-    serverName = "ircDyalna";
-    initserver();
-    run();
-    multiplexar();
-}
-
-Server::Server(const Server& other) {
-    *this = other;
-}
-
-const Server& Server::operator=(const Server& other) {
-    if (this == &other)
-        return(*this);
-    port = other.port;
-    password = other.password;
-    return(*this);
-}
-
-Server::~Server() {
-    close(serversocket);
-}
-
-const std::string& Server::getServerName() const {
-    return (serverName);
-}
-
-int Server::isNicknameTaken(std::string& nickname) {
-    std::map<int, Client>::iterator it;
-
-    for(it = clientMap.begin(); it != clientMap.end(); it++){
-        if (it->second.getNick() == nickname)
-            return(it->second.getFd());
-    }
-    return(-1);
-}
-
-int Server::get_epfd() const {
-    return epfd;
-}
-
-std::map<int, Client>   &Server::mapGetter() {
-    return clientMap;
-}
-
-Channel* Server::getChannel(const std::string& name) {
-    std::map<std::string, Channel*>::iterator it = _channels.find(name);
-    if (it != _channels.end())
-        return it->second;
-    return NULL;
-}
-
-void Server::addChannel(Channel* channel) {
-    _channels[channel->getName()] = channel;
-}
-
-const std::map<std::string, Channel*>& Server::getChannels() const {
-    return _channels;
-}
-
-void Server::removeChannel(const std::string& name) {
-    std::string lowerName = toLower(name);
-    std::map<std::string, Channel*>::iterator it = _channels.find(lowerName);
-    if (it != _channels.end()) {
-        _channels.erase(it);
     }
 }

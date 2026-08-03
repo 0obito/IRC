@@ -9,4 +9,4 @@
 #include "includes/Server.hpp"
 #include "includes/Utils.hpp"
 
-#endif
+#endif /* IRCSERV_HPP */
