@@ -106,11 +106,9 @@ void            Server::multiplexar()
     size_t                  position;
     struct epoll_event      ev;
 
-    // [??? why use epoll_create1() and not epoll_create()]
     epfd = epoll_create1(0);
     if (epfd < 0) {
-        std::cerr << "[ERROR] Creating an epoll instance has failed!" << std::endl;
-        // [??? how about cleaning? if there's any]
+        std::cerr << "[ERROR] Creating an epoll instance has failed!\n";
         exit(1);
     }
     memset(&ev, 0, sizeof(ev));
@@ -118,26 +116,15 @@ void            Server::multiplexar()
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
     while(true) {
-        // made a change here. timeout before = -1, timeout now = 1000
-        // [??? I need to check if 1000ms makes sense, or is it waking up the server so fast?]
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, 1000);
-        // std::cout << "fds: " << nfds << std::endl;
         for (int i = 0; i < nfds; i++) {
-            //
-            for (std::map<int, Client>::iterator iii = clientMap.begin(); iii != clientMap.end(); iii++) {
-                std::cout << iii->second.getFd() << ", ";
-            }
-            std::cout << std::endl;
-            //
             current_fd = event_buffer[i].data.fd;
-            std::cout << "current fd: " << current_fd << std::endl;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
             if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
                 Server::handeleDisconnect(current_fd);
             }
             else if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
-                std::cout << "new client: " << new_fd << std::endl;
                 if (new_fd != -1) {
                     struct epoll_event client_ev;
                     memset(&client_ev, 0, sizeof(client_ev));
@@ -151,11 +138,10 @@ void            Server::multiplexar()
                 if (bytes > 0)
                 {
                     if (iter == clientMap.end()) {
-                        std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
-                        // [?] need to handle error here (close the client or whatever)
+                        std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << "\n";
+                        // [?] need to handle error here (close the client or whatever). if nothing to clean then continue to the loop??...
                     }
                     iter->second.updateActivity();
-                    /* std::string &r_buf = clientMap[current_fd].getRecvBuf(); */                                  // not the correct way of using map
                     std::string &r_buf = iter->second.getRecvBuf();
                     r_buf.append(buffer, bytes);
                     if (r_buf.size() > 4096)
@@ -175,11 +161,9 @@ void            Server::multiplexar()
                         }
                         Command msg = Parser::parse(line);
                         commandDispatcher cmdDispatcher;
-                        // cmdDispatcher.routeCommand(*this, clientMap[current_fd], msg);                           // not the correct way of using map
                         cmdDispatcher.routeCommand(*this, iter->second, msg);
                     }
-                    // std::string &sendQueue = clientMap[current_fd].getSendQueue();                               // not the correct way of using map
-                    std::string &sendQueue = iter->second.getSendQueue();
+                    std::string& sendQueue = iter->second.getSendQueue();
                     if (!sendQueue.empty()){
                         if (Server::send_message(current_fd, sendQueue) != (ssize_t)sendQueue.size()){
                             struct epoll_event current_ev;
@@ -193,19 +177,17 @@ void            Server::multiplexar()
                 else if (bytes == 0) {
                     Server::handeleDisconnect(current_fd);
                 }
-                else {
-                    if (errno != EAGAIN && errno != EWOULDBLOCK)
+                else if (errno != EAGAIN && errno != EWOULDBLOCK) {
                         Server::handeleDisconnect(current_fd);
                 }
             }
             else if (event_buffer[i].events & EPOLLOUT) {
                 if (iter == clientMap.end()) {
                     std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
-                    // [?] need to handle error here (close the client or whatever)
+                    // [?] need to handle error here (close the client or whatever). if nothing to clean then continue to the loop??...
                 }
-                // [?] Shouldn't we check the return of send_message() down here. In case it fails? 
-                // Server::send_message(current_fd, clientMap[current_fd].getSendQueue());                          // not the correct way of using map
                 Server::send_message(current_fd, iter->second.getSendQueue());
+                // [?] Shouldn't we check the return of send_message() down here. In case it fails?
                 if (iter->second.getSendQueue().empty()) {
                     struct epoll_event current_ev;
                     memset(&current_ev, 0, sizeof(current_ev));
@@ -215,8 +197,6 @@ void            Server::multiplexar()
                 }
             }
         }
-        // all added by me obito :p
-        /*      from this line      */
         pingPong();
     }
 }
@@ -250,33 +230,36 @@ void            Server::pingPong() {
     time_t now = time(NULL);
     if (now - lastSweep >= 10) {
         lastSweep = now;
-        std::map<int, Client> copy = clientMap;
-        for (std::map<int, Client>::iterator it = copy.begin(); it != copy.end(); it++) {
+        // std::map<int, Client> copy = clientMap; // [ ??? this lowkey feels stupid ]
+        for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); it++) {
             std::cout << "///////-->" << it->second.getNick() << std::endl;
-            Client& cl = clientMap.find(it->second.getFd())->second;
+            // Client& cl = clientMap.find(it->second.getFd())->second; // [ ??? and this lowkey feels stupid too ]
+            Client& cl = it->second; // this should work, I think
             int idleTime = now - cl.getLastActivity();
-            if (idleTime > 60 && !cl.isWaitingForPong()) {
-                std::string pingMsg = "PING :keepalive\r\n";
-                cl.getSendQueue() += pingMsg;
-                cl.setWaitingForPong(true);
-                struct epoll_event current_ev;
-                memset(&current_ev, 0, sizeof(current_ev));
-                current_ev.events = EPOLLOUT | EPOLLIN;
-                current_ev.data.fd = cl.getFd();
-                epoll_ctl(epfd, EPOLL_CTL_MOD, cl.getFd(), &current_ev);
-            }
-            else if (idleTime > 120) {
+            if (idleTime > 60) {
                 int fd = cl.getFd();
-                std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
-                std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
-                std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
-                std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
-                // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
-                /*broadcastClientGone(it->first);*/
-                // Flag them for deletion / close socket. Will ask younes about it later.
-                /*disconnectClient(it->first);*/
-                Server::handeleDisconnect(cl.getFd());
-                std::cout << "client with fd " << fd << " is gone!" << std::endl;
+                if (!cl.isWaitingForPong()) {
+                    std::string pingMsg = "PING :keepalive\r\n";
+                    cl.getSendQueue() += pingMsg;
+                    cl.setWaitingForPong(true);
+                    struct epoll_event current_ev;
+                    memset(&current_ev, 0, sizeof(current_ev));
+                    current_ev.events = EPOLLOUT | EPOLLIN;
+                    current_ev.data.fd = fd;
+                    epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &current_ev);
+                }
+                else {
+                    std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
+                    std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
+                    std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
+                    std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
+                    // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
+                    /*broadcastClientGone(it->first);*/
+                    // Flag them for deletion / close socket. Will ask younes about it later.
+                    /*disconnectClient(it->first);*/
+                    Server::handeleDisconnect(cl.getFd());
+                    std::cout << "client with fd: " << fd << " was disconnected.\n";
+                }
             }
         }
     }
