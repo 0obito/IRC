@@ -38,7 +38,6 @@ void welcomingSeq(Client& client, const std::string serverName) {
 void registerClient(Client& client, const std::string serverName) {
     if (!client.isRegistered()) {
         if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
-            // turn on registration flag
             client.setRegistered(true);
             welcomingSeq(client, serverName);
         }
@@ -79,7 +78,7 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
         // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
-    if (parsedMsg.params[0] == server.get_password()) {
+    if (parsedMsg.params[0] == server.getPassword()) {
         client.setPassOk(true);
         return ;
     }
@@ -221,8 +220,8 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
             client.getSendQueue() += reply;
             continue ;
         }
-        std::map<int, Client>::iterator iter = server.mapGetter().find(targetFD);
-        if (iter != server.mapGetter().end()) {
+        std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
+        if (iter != server.getMap().end()) {
             reply = ":" + client.getNick() + "!" + client.getUser() + "@localhost " 
                     + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
             iter->second.getSendQueue() += reply;
@@ -248,8 +247,8 @@ void handleNOTICE(Server& server, Client& client, Command& parsedMsg) {
         if (targetFD == -1) {
             continue;
         }
-        std::map<int, Client>::iterator iter = server.mapGetter().find(targetFD);
-        if (iter != server.mapGetter().end()) {
+        std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
+        if (iter != server.getMap().end()) {
             std::string reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 NOTICE " 
                     + iter->second.getNick() + " :" + messageText + "\r\n";
             iter->second.getSendQueue() += reply;
@@ -372,51 +371,51 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
         if (channel->isMember(client.getFd())) {
             continue;
         }
-        
+
         // Check invite-only
         if (channel->isInviteOnly() && !channel->isInvited(client.getFd())) {
             reply = makeReply(serverName, 473, targetNick, "Cannot join channel (+i)", channelName);
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Check key (if channel has a key and it doesn't match)
         if (!channel->getKey().empty() && channel->getKey() != channelKey) {
             reply = makeReply(serverName, 475, targetNick, "Cannot join channel (+k)", channelName);
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Check user limit
         if (channel->isFull()) {
             reply = makeReply(serverName, 471, targetNick, "Cannot join channel (+l)", channelName);
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Remove invite if present
         if (channel->isInvited(client.getFd()))
             channel->removeInvite(client.getFd());
-        
+
         // Add member to channel
         channel->addMember(client.getFd());
         client.joinChannel(lowerChannelName);
-        
+
         // If first user in channel, make them operator
         if (isNewChannel || channel->getMembers().size() == 1) {
             channel->addOperator(client.getFd());
         }
-        
+
         // Send JOIN message to the client
         reply = ":" + client.getNick() + "!" + client.getUser() + "@localhost JOIN " + channelName + "\r\n";
         client.getSendQueue() += reply;
-        
+
         // Send JOIN to all other members in channel
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
             if (*it != client.getFd()) {
-                std::map<int, Client>::iterator iter = server.mapGetter().find(*it);
-                if (iter != server.mapGetter().end()) {
+                std::map<int, Client>::iterator iter = server.getMap().find(*it);
+                if (iter != server.getMap().end()) {
                     iter->second.getSendQueue() += reply;
                     
                     struct epoll_event current_ev;
@@ -427,7 +426,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
                 }
             }
         }
-        
+
         // Send topic (332 if exists, 331 if not)
         if (channel->getTopic().empty()) {
             reply = makeReply(serverName, 331, client.getNick(), "No topic is set", channelName);
@@ -443,8 +442,8 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
                 namelist << " ";
             
             // Find client to get nickname
-            std::map<int, Client>::const_iterator clientIt = server.mapGetter().find(*it);
-            if (clientIt != server.mapGetter().end()) {
+            std::map<int, Client>::const_iterator clientIt = server.getMap().find(*it);
+            if (clientIt != server.getMap().end()) {
                 if (channel->isOperator(*it))
                     namelist << "@";
                 namelist << clientIt->second.getNick();
@@ -522,8 +521,8 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         // Send PART to all members in the channel (including the departing user)
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
-            std::map<int, Client>::iterator iter = server.mapGetter().find(*it);
-            if (iter != server.mapGetter().end()) {
+            std::map<int, Client>::iterator iter = server.getMap().find(*it);
+            if (iter != server.getMap().end()) {
                 iter->second.getSendQueue() += partMsg;
                 
                 struct epoll_event current_ev;

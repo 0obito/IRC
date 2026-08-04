@@ -1,0 +1,15 @@
+Down here is everything that happened in this patch:
+
+- `getPassword()`:
+    +   was returning `std::string`, now it returns `std::string &`.
+
+- `Server class`'s canonical form:
+    +   removed `copy constructor`.
+    +   removed `assignment operator`.
+
+- `getters()` in `Server class`:
+    +   made `const` tweaks to applicable methods.
+
+
+
+I had a complete check on the `Server class` I think it's fine.

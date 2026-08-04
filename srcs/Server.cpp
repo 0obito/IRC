@@ -3,8 +3,9 @@
 #include "../includes/Dispatcher.hpp"
 #include "../includes/Utils.hpp"
 
+
 // canonical form
-Server::Server(int port_in, std::string pwd) {
+Server::Server(int port_in, const std::string& pwd) {
     port = port_in;
     password = pwd;
     serverName = "ircDyalna";
@@ -13,42 +14,21 @@ Server::Server(int port_in, std::string pwd) {
     multiplexar();
 }
 
-// [??? I think we need to make these private, they don't make sense and no need for them anyways.
-// Server::Server(const Server& other) {
-//     *this = other;
-// }
-
-// [??? const is probably wrong here]
-// [??? I think we need to make these private, they don't make sense and no need for them anyways.
-// const Server& Server::operator=(const Server& other) {
-//     if (this == &other)
-//         return(*this);
-//     port = other.port;
-//     password = other.password;
-//     return(*this);
-// }
-
-const Server& Server::operator=(const Server& other) {
-    (void)other;
-    return *this;
-}
-
-
 Server::~Server() {
     close(serversocket);
 }
+
 
 // getters
 const std::string&                      Server::getServerName() const {
     return (serverName);
 }
 
-// [??? a whole copy is returned here, a const ref could be better]
-std::string                             Server::get_password() {
+const std::string&                      Server::getPassword() const {
     return(password);
 }
 
-const std::map<std::string, Channel*>&  Server::getChannels() const {
+std::map<std::string, Channel*>&        Server::getChannels() {
     return _channels;
 }
 
@@ -56,7 +36,7 @@ int                                     Server::get_epfd() const {
     return epfd;
 }
 
-std::map<int, Client>&                  Server::mapGetter() {
+std::map<int, Client>&                  Server::getMap() {
     return clientMap;
 }
 
@@ -83,7 +63,6 @@ int             Server::isNicknameTaken(std::string& nickname) {
 // modifiers
 int             Server::acceptNewClient() {
     int new_fd = accept(serversocket, NULL, NULL);
-    // clientMap[new_fd] = Client(new_fd);                                                                          // not the correct way of using map
     clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
     return (new_fd);
 }
@@ -101,7 +80,7 @@ void            Server::removeChannel(const std::string& name) {
 }
 
 
-// other
+// server backbone
 void            Server::initserver()
 {
     address.sin_family = AF_INET;
@@ -116,65 +95,6 @@ void            Server::run()
     setsockopt(serversocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     bind(serversocket, (sockaddr*)&address, sizeof(address));
     listen(serversocket, SOMAXCONN);
-}
-
-void            Server::handeleDisconnect(int fd)
-{
-    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-    close(fd);
-    clientMap.erase(fd);
-}
-
-ssize_t         Server::send_message(int fd, std::string &buf){
-    ssize_t send_size;
-
-    if (buf.empty())
-        return(0);
-    send_size = send(fd, buf.c_str(), buf.size(), MSG_DONTWAIT);
-    if (send_size > 0){
-        buf.erase(0, send_size);
-    }
-    else if (send_size == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        Server::handeleDisconnect(fd);
-    }
-    return (send_size);
-}
-
-void            Server::pingPong() {
-    static time_t lastSweep = time(NULL);
-    time_t now = time(NULL);
-    if (now - lastSweep >= 10) {
-        lastSweep = now;
-        std::map<int, Client> copy = clientMap;
-        for (std::map<int, Client>::iterator it = copy.begin(); it != copy.end(); it++) {
-            std::cout << "///////-->" << it->second.getNick() << std::endl;
-            Client& cl = clientMap.find(it->second.getFd())->second;
-            int idleTime = now - cl.getLastActivity();
-            if (idleTime > 60 && !cl.isWaitingForPong()) {
-                std::string pingMsg = "PING :keepalive\r\n";
-                cl.getSendQueue() += pingMsg;
-                cl.setWaitingForPong(true);
-                struct epoll_event current_ev;
-                memset(&current_ev, 0, sizeof(current_ev));
-                current_ev.events = EPOLLOUT | EPOLLIN;
-                current_ev.data.fd = cl.getFd();
-                epoll_ctl(epfd, EPOLL_CTL_MOD, cl.getFd(), &current_ev);
-            }
-            else if (idleTime > 120) {
-                int fd = cl.getFd();
-                std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
-                std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
-                std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
-                std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
-                // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
-                /*broadcastClientGone(it->first);*/
-                // Flag them for deletion / close socket. Will ask younes about it later.
-                /*disconnectClient(it->first);*/
-                Server::handeleDisconnect(cl.getFd());
-                std::cout << "client with fd " << fd << " is gone!" << std::endl;
-            }
-        }
-    }
 }
 
 void            Server::multiplexar()
@@ -298,5 +218,66 @@ void            Server::multiplexar()
         // all added by me obito :p
         /*      from this line      */
         pingPong();
+    }
+}
+
+
+// other
+void            Server::handeleDisconnect(int fd)
+{
+    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+    close(fd);
+    clientMap.erase(fd);
+}
+
+ssize_t         Server::send_message(int fd, std::string &buf){
+    ssize_t send_size;
+
+    if (buf.empty())
+        return(0);
+    send_size = send(fd, buf.c_str(), buf.size(), MSG_DONTWAIT);
+    if (send_size > 0){
+        buf.erase(0, send_size);
+    }
+    else if (send_size == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        Server::handeleDisconnect(fd);
+    }
+    return (send_size);
+}
+
+void            Server::pingPong() {
+    static time_t lastSweep = time(NULL);
+    time_t now = time(NULL);
+    if (now - lastSweep >= 10) {
+        lastSweep = now;
+        std::map<int, Client> copy = clientMap;
+        for (std::map<int, Client>::iterator it = copy.begin(); it != copy.end(); it++) {
+            std::cout << "///////-->" << it->second.getNick() << std::endl;
+            Client& cl = clientMap.find(it->second.getFd())->second;
+            int idleTime = now - cl.getLastActivity();
+            if (idleTime > 60 && !cl.isWaitingForPong()) {
+                std::string pingMsg = "PING :keepalive\r\n";
+                cl.getSendQueue() += pingMsg;
+                cl.setWaitingForPong(true);
+                struct epoll_event current_ev;
+                memset(&current_ev, 0, sizeof(current_ev));
+                current_ev.events = EPOLLOUT | EPOLLIN;
+                current_ev.data.fd = cl.getFd();
+                epoll_ctl(epfd, EPOLL_CTL_MOD, cl.getFd(), &current_ev);
+            }
+            else if (idleTime > 120) {
+                int fd = cl.getFd();
+                std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
+                std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
+                std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
+                std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
+                // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
+                /*broadcastClientGone(it->first);*/
+                // Flag them for deletion / close socket. Will ask younes about it later.
+                /*disconnectClient(it->first);*/
+                Server::handeleDisconnect(cl.getFd());
+                std::cout << "client with fd " << fd << " is gone!" << std::endl;
+            }
+        }
     }
 }

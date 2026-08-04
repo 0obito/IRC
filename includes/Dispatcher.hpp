@@ -22,7 +22,8 @@ class commandDispatcher {
         commandDispatcher(const commandDispatcher& other);
         commandDispatcher& operator=(const commandDispatcher& other);
         ~commandDispatcher();
+
         void routeCommand(Server& server, Client& client, Command& parsedMsg);
 };
 
-#endif
+#endif /* DISPATCHER_HPP */

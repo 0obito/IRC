@@ -68,4 +68,4 @@ public:
     void removeInvite(int fd);
 };
 
-#endif
+#endif /* CHANNEL_HPP */
