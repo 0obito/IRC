@@ -54,6 +54,7 @@ public:
 
     // other
     void        handeleDisconnect(int fd);
+    void        handeleDisconnect(std::map<int, Client>::iterator);
     ssize_t     send_message(int fd, std::string& buf);
     void        pingPong();
 };

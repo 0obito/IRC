@@ -8,6 +8,7 @@ Client::Client(int fd)
       nickOk(false),
       userOk(false),
       registerOk(false),
+      dead(false),
       waitingForPong(false)
 {
     lastActivity = time(NULL);
@@ -69,6 +70,11 @@ void Client::setRegistered(bool value) {
     registerOk = value;
 }
 
+void Client::setDead(bool value) {
+    dead = value;
+}
+
+
 bool Client::getPassOk() const{
     return (passOk);
 }
@@ -85,6 +91,11 @@ bool Client::isRegistered() const
 {
     return registerOk;
 }
+
+bool Client::isDead() const {
+    return dead;
+}
+
 
 std::string &Client::getRecvBuf() {
     return recvBuf;

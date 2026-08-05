@@ -1,15 +1,11 @@
 Down here is everything that happened in this patch:
 
-- `getPassword()`:
-    +   was returning `std::string`, now it returns `std::string &`.
+I was dealing wiht `pingPong()` the whole time. it's shitting on me at this point.
 
-- `Server class`'s canonical form:
-    +   removed `copy constructor`.
-    +   removed `assignment operator`.
+I fixed a segfault that had to do with th iterator being changed inside the loop (erasing an element of the `clientMap` which we're iterating).
 
-- `getters()` in `Server class`:
-    +   made `const` tweaks to applicable methods.
+I tried fixing the problem of disconnecting an inactive user who didnt reply to `PING`.
+I'm almost there, the client gets the disconnected message and is indeed disconnected.
+But that doesn't happend right away, the server awaits the dead client to pass a command (a VALID one apparently) to then understand it should be dead and disconnect it.
 
-
-
-I had a complete check on the `Server class` I think it's fine.
+Working next on that.

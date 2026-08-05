@@ -173,6 +173,10 @@ void            Server::multiplexar()
                             epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
                         }
                     }
+                    else if (iter->second.isDead()) {
+                        std::cout<<"lil bro's dead lol\n";
+                        handeleDisconnect(current_fd);
+                    }
                 }
                 else if (bytes == 0) {
                     Server::handeleDisconnect(current_fd);
@@ -210,6 +214,13 @@ void            Server::handeleDisconnect(int fd)
     clientMap.erase(fd);
 }
 
+void            Server::handeleDisconnect(std::map<int, Client>::iterator it)   // I newly added this, it's faster but we can't use it all the time
+{
+    epoll_ctl(epfd, EPOLL_CTL_DEL, it->first, NULL);
+    close(it->first);
+    clientMap.erase(it);
+}
+
 ssize_t         Server::send_message(int fd, std::string &buf){
     ssize_t send_size;
 
@@ -231,12 +242,12 @@ void            Server::pingPong() {
     if (now - lastSweep >= 10) {
         lastSweep = now;
         // std::map<int, Client> copy = clientMap; // [ ??? this lowkey feels stupid ]
-        for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); it++) {
-            std::cout << "///////-->" << it->second.getNick() << std::endl;
+        for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end();) {
+            // std::cout << "///////-->" << it->second.getNick() << std::endl;
             // Client& cl = clientMap.find(it->second.getFd())->second; // [ ??? and this lowkey feels stupid too ]
             Client& cl = it->second; // this should work, I think
             int idleTime = now - cl.getLastActivity();
-            if (idleTime > 60) {
+            if (idleTime > 10) {
                 int fd = cl.getFd();
                 if (!cl.isWaitingForPong()) {
                     std::string pingMsg = "PING :keepalive\r\n";
@@ -247,19 +258,26 @@ void            Server::pingPong() {
                     current_ev.events = EPOLLOUT | EPOLLIN;
                     current_ev.data.fd = fd;
                     epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &current_ev);
+                    ++it;
                 }
                 else {
                     std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
                     std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
                     std::string clHost = "127.0.0.1"; // Default localhost for our project i think?
                     std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
+                    cl.getSendQueue() += quitMsg;
+                    cl.setDead(true);
+                    it++;
                     // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
                     /*broadcastClientGone(it->first);*/
                     // Flag them for deletion / close socket. Will ask younes about it later.
                     /*disconnectClient(it->first);*/
-                    Server::handeleDisconnect(cl.getFd());
+                    // Server::handeleDisconnect(it++);
                     std::cout << "client with fd: " << fd << " was disconnected.\n";
                 }
+            }
+            else {
+                it++;
             }
         }
     }

@@ -27,6 +27,7 @@ private:
     bool nickOk;
     bool userOk;
     bool registerOk;
+    bool dead;
 
     std::string recvBuf;
     std::string sendQueue;
@@ -58,12 +59,14 @@ public:
     void setNickOk(bool value);
     void setUserOk(bool value);
     void setRegistered(bool value);
+    void setDead(bool value);
 
     // state getters
     bool getPassOk() const;
     bool getNickOk() const;
     bool getUserOk() const;
     bool isRegistered() const;
+    bool isDead() const;
 
     // buffers
     std::string &getRecvBuf();
