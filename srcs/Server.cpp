@@ -173,10 +173,6 @@ void            Server::multiplexar()
                             epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
                         }
                     }
-                    else if (iter->second.isDead()) {
-                        std::cout<<"lil bro's dead lol\n";
-                        handeleDisconnect(current_fd);
-                    }
                 }
                 else if (bytes == 0) {
                     Server::handeleDisconnect(current_fd);
@@ -198,6 +194,10 @@ void            Server::multiplexar()
                     current_ev.events = EPOLLIN;
                     current_ev.data.fd = current_fd;
                     epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                    if (iter->second.isDead()) {
+                        std::cout << "client with fd: " << current_fd << " was disconnected.\n";
+                        handeleDisconnect(current_fd);
+                    }
                 }
             }
         }
@@ -242,7 +242,7 @@ void            Server::pingPong() {
     if (now - lastSweep >= 10) {
         lastSweep = now;
         // std::map<int, Client> copy = clientMap; // [ ??? this lowkey feels stupid ]
-        for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end();) {
+        for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); ++it) {
             // std::cout << "///////-->" << it->second.getNick() << std::endl;
             // Client& cl = clientMap.find(it->second.getFd())->second; // [ ??? and this lowkey feels stupid too ]
             Client& cl = it->second; // this should work, I think
@@ -258,7 +258,6 @@ void            Server::pingPong() {
                     current_ev.events = EPOLLOUT | EPOLLIN;
                     current_ev.data.fd = fd;
                     epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &current_ev);
-                    ++it;
                 }
                 else {
                     std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
@@ -267,17 +266,12 @@ void            Server::pingPong() {
                     std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
                     cl.getSendQueue() += quitMsg;
                     cl.setDead(true);
-                    it++;
-                    // broadcast to all channels li client kayn fihom, bli wla disconnected. [Will make it later when we do channels]
-                    /*broadcastClientGone(it->first);*/
-                    // Flag them for deletion / close socket. Will ask younes about it later.
-                    /*disconnectClient(it->first);*/
-                    // Server::handeleDisconnect(it++);
-                    std::cout << "client with fd: " << fd << " was disconnected.\n";
+                    struct epoll_event current_ev;
+                    memset(&current_ev, 0, sizeof(current_ev));
+                    current_ev.events = EPOLLOUT;
+                    current_ev.data.fd = cl.getFd();
+                    epoll_ctl(epfd, EPOLL_CTL_MOD, cl.getFd(), &current_ev);
                 }
-            }
-            else {
-                it++;
             }
         }
     }
