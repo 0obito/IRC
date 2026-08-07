@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <csignal>
 #include <map>
 #include "./Channel.hpp"
 #include "./Client.hpp"
@@ -57,6 +58,8 @@ public:
     void        handeleDisconnect(std::map<int, Client>::iterator);
     ssize_t     send_message(int fd, std::string& buf);
     void        pingPong();
+    void        disconnect();
 };
 
+extern int  signal_status;
 #endif /*SERVER_HPP*/
