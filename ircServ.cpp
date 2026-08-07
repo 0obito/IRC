@@ -3,6 +3,12 @@
 #include <sstream>
 #include "ircServ.hpp"
 
+int signal_status = 0;
+
+void    signal_handler(int signal) {
+    signal_status = signal;
+}
+
 int main(int ac, char *av[]) {
     int port;
 
@@ -21,6 +27,7 @@ int main(int ac, char *av[]) {
         return 1;
     }
     std::cout << "[SUCCESS] Starting server on port " << port << "...\n";
+    std::signal(SIGINT, signal_handler);
     Server server(port, av[2]);
 
     return 0;

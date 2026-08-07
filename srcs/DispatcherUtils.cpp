@@ -447,7 +447,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
 
         reply = makeReply(serverName, 353, client.getNick(), "= " + channelName + " :" + namelist.str());
         client.getSendQueue() += reply;
-        
+
         // Send ENDOFNAMES (366)
         reply = makeReply(serverName, 366, client.getNick(), "End of /NAMES list", channelName);
         client.getSendQueue() += reply;

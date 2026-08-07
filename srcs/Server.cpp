@@ -3,7 +3,6 @@
 #include "../includes/Dispatcher.hpp"
 #include "../includes/Utils.hpp"
 
-
 // canonical form
 Server::Server(int port_in, const std::string& pwd) {
     port = port_in;
@@ -95,6 +94,16 @@ void            Server::run()
     listen(serversocket, SOMAXCONN);
 }
 
+void    Server::disconnect() {
+    std::map<int, Client>::iterator it = clientMap.begin();
+
+    while(it != clientMap.end()) {
+        std::cout << it->first << std::endl;
+        handeleDisconnect(it++);
+    }
+    close(epfd);
+}
+
 void            Server::multiplexar()
 {
     char                    buffer[1024];
@@ -113,7 +122,7 @@ void            Server::multiplexar()
     ev.events = EPOLLIN;
     ev.data.fd = serversocket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
-    while(true) {
+    while(signal_status == 0) {
         nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, 1000);
         for (int i = 0; i < nfds; i++) {
             current_fd = event_buffer[i].data.fd;
@@ -201,6 +210,7 @@ void            Server::multiplexar()
         }
         pingPong();
     }
+    disconnect();
 }
 
 
@@ -237,7 +247,7 @@ ssize_t         Server::send_message(int fd, std::string &buf){
 void            Server::pingPong() {
     static time_t lastSweep = time(NULL);
     time_t now = time(NULL);
-    if (now - lastSweep >= 10) {
+    if (now - lastSweep >= 60) {
         lastSweep = now;
         // std::map<int, Client> copy = clientMap; // [ ??? this lowkey feels stupid ]
         for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); ++it) {
@@ -245,7 +255,7 @@ void            Server::pingPong() {
             // Client& cl = clientMap.find(it->second.getFd())->second; // [ ??? and this lowkey feels stupid too ]
             Client& cl = it->second; // this should work, I think
             int idleTime = now - cl.getLastActivity();
-            if (idleTime > 10) {
+            if (idleTime > 60) {
                 int fd = cl.getFd();
                 if (!cl.isWaitingForPong()) {
                     std::string pingMsg = "PING :keepalive\r\n";
