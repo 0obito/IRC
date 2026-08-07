@@ -131,7 +131,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     if (client.getNickOk() && client.getNick() == nickName) {
         return ;
     }
-    if (server.isNicknameTaken(nickName) != -1) {
+    if (server.nicknameOwner(nickName) != -1) {
         reply = makeReply(serverName, 433, targetNick, "Nickname is already in use", nickName);
         client.getSendQueue() += reply;
         // std::cout << "ERR_NICKNAMEINUSE (433)" << std::endl;
@@ -214,22 +214,17 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
     std::string singleTarget;
 
     while (std::getline(ss, singleTarget, ',')) {
-        int targetFD = server.isNicknameTaken(singleTarget);
-        if (targetFD == -1) {
-            reply = makeReply(serverName, 401, senderNick, "No such nick/channel", singleTarget);
-            client.getSendQueue() += reply;
+        // empty name, go to the next one
+        if (singleTarget.empty()) {
             continue ;
         }
-        std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
-        if (iter != server.getMap().end()) {
-            reply = ":" + client.getNick() + "!" + client.getUser() + "@localhost " 
-                    + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
-            iter->second.getSendQueue() += reply;
-            struct epoll_event current_ev;
-            memset(&current_ev, 0, sizeof(current_ev));
-            current_ev.events = EPOLLOUT | EPOLLIN;
-            current_ev.data.fd = iter->first;
-            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+        // it's to a channel, broadcast the message
+        else if (singleTarget[0] == '#' || singleTarget[0] == '&') {
+            broadcastToChannel(server, client, parsedMsg, singleTarget, messageText);
+        }
+        // it's to a user, send the message
+        else {
+            sendToClient(server, client, parsedMsg, singleTarget, messageText);
         }
     }
 }
@@ -243,7 +238,7 @@ void handleNOTICE(Server& server, Client& client, Command& parsedMsg) {
     std::stringstream ss(rawTargets);
     std::string singleTarget;
     while (std::getline(ss, singleTarget, ',')) {
-        int targetFD = server.isNicknameTaken(singleTarget);
+        int targetFD = server.nicknameOwner(singleTarget);
         if (targetFD == -1) {
             continue;
         }
@@ -348,25 +343,25 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
         
         // Convert channel name to lowercase for consistency
         std::string lowerChannelName = toLower(channelName);
-        
+
         // Validate channel name (must start with # or &)
         if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
             reply = makeReply(serverName, 476, targetNick, "Invalid channel name", channelName);
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Check if channel exists
         Channel* channel = server.getChannel(lowerChannelName);
         bool isNewChannel = false;
-        
+
         if (!channel) {
             // Create new channel
             channel = new Channel(lowerChannelName);
             server.addChannel(channel);
             isNewChannel = true;
         }
-        
+
         // Check if already in channel
         if (channel->isMember(client.getFd())) {
             continue;
@@ -417,7 +412,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
                 std::map<int, Client>::iterator iter = server.getMap().find(*it);
                 if (iter != server.getMap().end()) {
                     iter->second.getSendQueue() += reply;
-                    
+
                     struct epoll_event current_ev;
                     memset(&current_ev, 0, sizeof(current_ev));
                     current_ev.events = EPOLLOUT | EPOLLIN;
@@ -434,13 +429,13 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
             reply = makeReply(serverName, 332, client.getNick(), channel->getTopic(), channelName);
         }
         client.getSendQueue() += reply;
-        
+
         // Build NAMREPLY (353)
         std::stringstream namelist;
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
             if (it != members.begin())
                 namelist << " ";
-            
+
             // Find client to get nickname
             std::map<int, Client>::const_iterator clientIt = server.getMap().find(*it);
             if (clientIt != server.getMap().end()) {
@@ -449,7 +444,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
                 namelist << clientIt->second.getNick();
             }
         }
-        
+
         reply = makeReply(serverName, 353, client.getNick(), "= " + channelName + " :" + namelist.str());
         client.getSendQueue() += reply;
         
@@ -470,24 +465,24 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // Check if enough parameters
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // Parse channel names (comma separated)
     std::string channelList = parsedMsg.params[0];
     std::string reason = parsedMsg.params.size() > 1 ? parsedMsg.params[1] : "";
     std::stringstream channelStream(channelList);
     std::string channelName;
-    
+
     while (std::getline(channelStream, channelName, ',')) {
         // Convert channel name to lowercase for consistency
         std::string lowerChannelName = toLower(channelName);
-        
+
         // Validate channel name
         if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
             reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
@@ -502,14 +497,14 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Check if client is in the channel
         if (!channel->isMember(client.getFd())) {
             reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Build PART message (broadcast to ALL members including the departing user)
         std::string partMsg;
         if (reason.empty()) {
@@ -517,14 +512,14 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         } else {
             partMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost PART " + channelName + " :" + reason + "\r\n";
         }
-        
+
         // Send PART to all members in the channel (including the departing user)
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
             std::map<int, Client>::iterator iter = server.getMap().find(*it);
             if (iter != server.getMap().end()) {
                 iter->second.getSendQueue() += partMsg;
-                
+
                 struct epoll_event current_ev;
                 memset(&current_ev, 0, sizeof(current_ev));
                 current_ev.events = EPOLLOUT | EPOLLIN;
@@ -532,11 +527,11 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
                 epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
             }
         }
-        
+
         // Remove client from channel
         channel->removeMember(client.getFd());
         client.leaveChannel(lowerChannelName);
-        
+
         // Delete channel if empty
         if (channel->getMembers().empty()) {
             server.removeChannel(lowerChannelName);

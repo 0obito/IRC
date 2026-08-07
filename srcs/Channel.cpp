@@ -26,7 +26,7 @@ void Channel::setName(const std::string &n)
 {
     if (n.empty() || (n[0] != '#' && n[0] != '&'))
         return;
-        
+
     if (n.find(' ') != std::string::npos || n.find(',') != std::string::npos || n.find(7) != std::string::npos) // 7 is ^G (bell character)
         return;
     this->name = toLower(n);

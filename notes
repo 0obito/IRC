@@ -1,11 +1,6 @@
 Down here is everything that happened in this patch:
 
-I was dealing wiht `pingPong()` the whole time. it's shitting on me at this point.
-
-I fixed a segfault that had to do with th iterator being changed inside the loop (erasing an element of the `clientMap` which we're iterating).
-
-I tried fixing the problem of disconnecting an inactive user who didnt reply to `PING`.
-I'm almost there, the client gets the disconnected message and is indeed disconnected.
-But that doesn't happend right away, the server awaits the dead client to pass a command (a VALID one apparently) to then understand it should be dead and disconnect it.
+Modified privmsg, so it works both with nicknames and channels.
+It's looking fine but I can't be sure because there seems to be some issues with JOIN/PART
 
 Working next on that.

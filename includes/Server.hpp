@@ -43,9 +43,7 @@ public:
     std::map<int, Client>&                  getMap();
     Channel*                                getChannel(const std::string& name);
     std::map<std::string, Channel*>&        getChannels();
-
-    // bool getters
-    int         isNicknameTaken(std::string& nickname);
+    int                                     nicknameOwner(std::string& nickname);
 
     // modifiers
     int         acceptNewClient();

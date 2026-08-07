@@ -1,6 +1,4 @@
 #include "../includes/Utils.hpp"
-#include <sstream>
-#include <cctype>
 
 std::string makeReply(const std::string &serverName, int code, const std::string &target, const std::string &msg, const std::string &extraArgs)
 {
@@ -64,4 +62,56 @@ std::string toUpper(const std::string &s)
     for (size_t i = 0; i < res.size(); i++)
         res[i] = std::toupper(res[i]);
     return res;
+}
+
+void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
+    int         targetFD = server.nicknameOwner(target);
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
+    if (targetFD == -1) {
+        reply = makeReply(serverName, 401, senderNick, "No such nickname", target);
+        client.getSendQueue() += reply;
+        return ;
+    }
+
+    std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
+    if (iter != server.getMap().end()) {
+        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " 
+                + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
+        iter->second.getSendQueue() += reply;
+        struct epoll_event current_ev;
+        memset(&current_ev, 0, sizeof(current_ev));
+        current_ev.events = EPOLLOUT | EPOLLIN;
+        current_ev.data.fd = iter->first;
+        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+    }
+}
+
+void        broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
+    const Channel*    targetChannel = server.getChannel(target);
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+
+    if (targetChannel == NULL) {
+        reply = makeReply(serverName, 401, senderNick, "No such channel", target);
+        client.getSendQueue() += reply;
+        return ;
+    }
+
+    std::set<int>::iterator iter = targetChannel->getMembers().begin();
+    for (; iter != targetChannel->getMembers().end(); iter++) {
+        // std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
+        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " 
+                + parsedMsg.command + " " + target + " :" + messageText + "\r\n";
+        Client& tempClient = server.getMap().find(*iter)->second;
+        tempClient.getSendQueue() += reply;
+        struct epoll_event current_ev;
+        memset(&current_ev, 0, sizeof(current_ev));
+        current_ev.events = EPOLLOUT | EPOLLIN;
+        current_ev.data.fd = tempClient.getFd();
+        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, tempClient.getFd(), &current_ev);
+    }
 }

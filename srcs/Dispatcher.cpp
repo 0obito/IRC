@@ -10,6 +10,9 @@ commandDispatcher::commandDispatcher() {
     _handlers["PRIVMSG"] = &handlePRIVMSG;
     _handlers["PING"] = &handlePING;
     _handlers["PONG"] = &handlePONG;
+    _handlers["NOTICE"] = &handleNOTICE;
+    _handlers["JOIN"] = &handleJOIN;
+    _handlers["PART"] = &handlePART;
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {

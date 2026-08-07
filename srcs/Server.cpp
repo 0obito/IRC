@@ -47,9 +47,7 @@ Channel*                                Server::getChannel(const std::string& na
     return NULL;
 }
 
-
-// bool getters
-int             Server::isNicknameTaken(std::string& nickname) {
+int                                     Server::nicknameOwner(std::string& nickname) {
     std::map<int, Client>::iterator it;
 
     for(it = clientMap.begin(); it != clientMap.end(); it++){
