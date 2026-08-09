@@ -21,4 +21,4 @@ void handleJOIN(Server &server, Client &client, Command &parsedMsg);
 void handlePART(Server &server, Client &client, Command &parsedMsg);
 void handleKICK(Server &server, Client &client, Command &parsedMsg);
 
-#endif
+#endif /* DISPATCHER_UTILS_HPP */

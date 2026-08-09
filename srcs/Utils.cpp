@@ -75,7 +75,7 @@ void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::st
         client.getSendQueue() += reply;
         return ;
     }
-
+    std::cout<<"we can't be here, we shouldn't be here!\n";
     std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
     if (iter != server.getMap().end()) {
         reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " 
@@ -89,22 +89,34 @@ void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::st
     }
 }
 
-void        broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
-    const Channel*    targetChannel = server.getChannel(target);
-    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
-    std::string serverName = server.getServerName();
-    std::string reply;
+void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
+    const Channel*  targetChannel = server.getChannel(target);
+    std::string     senderNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string     senderUser = client.getUser().empty() ? "*" : client.getUser();
+    std::string     serverName = server.getServerName();
+    std::string     reply;
 
+    // channel doesn't exist
     if (targetChannel == NULL) {
         reply = makeReply(serverName, 401, senderNick, "No such channel", target);
         client.getSendQueue() += reply;
         return ;
     }
 
+    // sender is not a member of the channel
+    if (!targetChannel->isMember(client.getFd())) {
+        std::cout << "Indeed\n";
+        reply = makeReply(serverName, 404, senderNick, "Cannot send to channel", target);
+        client.getSendQueue() += reply;
+        return ;
+    }
+
     std::set<int>::iterator iter = targetChannel->getMembers().begin();
     for (; iter != targetChannel->getMembers().end(); iter++) {
-        // std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
-        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " 
+        if (*iter == client.getFd()) {
+            continue ;
+        }
+        reply = ":" + senderNick + "!" + senderUser + "@127.0.0.1 " 
                 + parsedMsg.command + " " + target + " :" + messageText + "\r\n";
         Client& tempClient = server.getMap().find(*iter)->second;
         tempClient.getSendQueue() += reply;
