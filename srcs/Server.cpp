@@ -99,7 +99,7 @@ void    Server::disconnect() {
 
     while(it != clientMap.end()) {
         std::cout << it->first << std::endl;
-        handeleDisconnect(it++);
+        handeleDisconnect(++it);
     }
     close(epfd);
 }
@@ -128,7 +128,7 @@ void            Server::multiplexar()
             current_fd = event_buffer[i].data.fd;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
             if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
-                Server::handeleDisconnect(current_fd);
+                Server::handeleDisconnect(iter);
             }
             else if (current_fd == serversocket) {
                 new_fd = Server::acceptNewClient();
@@ -148,44 +148,46 @@ void            Server::multiplexar()
                         std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << "\n";
                         // [?] need to handle error here (close the client or whatever). if nothing to clean then continue to the loop??...
                     }
-                    iter->second.updateActivity();
-                    std::string &r_buf = iter->second.getRecvBuf();
-                    r_buf.append(buffer, bytes);
-                    if (r_buf.size() > 4096)
-                    {
-                        Server::handeleDisconnect(current_fd);
-                        continue;
-                    }
-                    // check if message full "\r\n"
-                    while ((position = r_buf.find("\r\n")) != std::string::npos)
-                    {
-                        std::string line = r_buf.substr(0, position);
-                        r_buf.erase(0, position + 2);
-                        if (line.size() > 510)
+                    else {
+                        iter->second.updateActivity();
+                        std::string &r_buf = iter->second.getRecvBuf();
+                        r_buf.append(buffer, bytes);
+                        if (r_buf.size() > 4096)
                         {
-                            Server::handeleDisconnect(current_fd);
-                            break;
+                            Server::handeleDisconnect(iter);
+                            continue;
                         }
-                        Command msg = Parser::parse(line);
-                        commandDispatcher cmdDispatcher;
-                        cmdDispatcher.routeCommand(*this, iter->second, msg);
-                    }
-                    std::string& sendQueue = iter->second.getSendQueue();
-                    if (!sendQueue.empty()){
-                        if (Server::send_message(current_fd, sendQueue) != (ssize_t)sendQueue.size()){
-                            struct epoll_event current_ev;
-                            memset(&current_ev, 0, sizeof(current_ev));
-                            current_ev.events = EPOLLIN | EPOLLOUT;
-                            current_ev.data.fd = current_fd;
-                            epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                        // check if message full "\r\n"
+                        while ((position = r_buf.find("\r\n")) != std::string::npos)
+                        {
+                            std::string line = r_buf.substr(0, position);
+                            r_buf.erase(0, position + 2);
+                            if (line.size() > 510)
+                            {
+                                Server::handeleDisconnect(iter);
+                                break;
+                            }
+                            Command msg = Parser::parse(line);
+                            commandDispatcher cmdDispatcher;
+                            cmdDispatcher.routeCommand(*this, iter->second, msg);
+                        }
+                        std::string& sendQueue = iter->second.getSendQueue();
+                        if (!sendQueue.empty()){
+                            if (Server::send_message(current_fd, sendQueue) != (ssize_t)sendQueue.size()){
+                                struct epoll_event current_ev;
+                                memset(&current_ev, 0, sizeof(current_ev));
+                                current_ev.events = EPOLLIN | EPOLLOUT;
+                                current_ev.data.fd = current_fd;
+                                epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                            }
                         }
                     }
                 }
                 else if (bytes == 0) {
-                    Server::handeleDisconnect(current_fd);
+                    Server::handeleDisconnect(iter);
                 }
                 else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                        Server::handeleDisconnect(current_fd);
+                        Server::handeleDisconnect(iter);
                 }
             }
             else if (event_buffer[i].events & EPOLLOUT) {
@@ -193,17 +195,19 @@ void            Server::multiplexar()
                     std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
                     // [?] need to handle error here (close the client or whatever). if nothing to clean then continue to the loop??...
                 }
-                Server::send_message(current_fd, iter->second.getSendQueue());
-                // [?] Shouldn't we check the return of send_message() down here. In case it fails?
-                if (iter->second.getSendQueue().empty()) {
-                    struct epoll_event current_ev;
-                    memset(&current_ev, 0, sizeof(current_ev));
-                    current_ev.events = EPOLLIN;
-                    current_ev.data.fd = current_fd;
-                    epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
-                    if (iter->second.isDead()) {
-                        std::cout << "client with fd: " << current_fd << " was disconnected.\n";
-                        handeleDisconnect(current_fd);
+                else {
+                    Server::send_message(current_fd, iter->second.getSendQueue());
+                    // [?] Shouldn't we check the return of send_message() down here. In case it fails?
+                    if (iter->second.getSendQueue().empty()) {
+                        struct epoll_event current_ev;
+                        memset(&current_ev, 0, sizeof(current_ev));
+                        current_ev.events = EPOLLIN;
+                        current_ev.data.fd = current_fd;
+                        epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
+                        if (iter->second.isDead()) {
+                            std::cout << "client with fd: " << current_fd << " was disconnected.\n";
+                            handeleDisconnect(current_fd);
+                        }
                     }
                 }
             }
