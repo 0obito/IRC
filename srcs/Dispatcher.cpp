@@ -13,6 +13,8 @@ commandDispatcher::commandDispatcher() {
     _handlers["NOTICE"] = &handleNOTICE;
     _handlers["JOIN"] = &handleJOIN;
     _handlers["PART"] = &handlePART;
+    _handlers["KICK"] = &handleKICK;
+    _handlers["NOTICE"] = &handleNOTICE;
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {

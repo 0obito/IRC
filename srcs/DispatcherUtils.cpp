@@ -54,13 +54,6 @@ void handleCAP(Server& server, Client& client, Command& parsedMsg) {
     // std::cout << "CAP * LS :" << std::endl;
 }
 
-void handleQUIT(Server& server, Client& client, Command& parsedMsg) {
-    (void)server;
-    (void)client;
-    (void)parsedMsg;
-    // later machi db, shouldn't take any time;
-}
-
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
@@ -648,4 +641,109 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
         server.removeChannel(lowerChannelName);
         delete channel;
     }
+}
+
+void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+    
+    // registered?
+    if (!client.isRegistered()) {
+        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // enough parameters?
+    if (parsedMsg.params.size() < 1) {
+        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        client.getSendQueue() += reply;
+        return;
+    }
+
+    std::string channelName = parsedMsg.params[0];
+    std::string lowerChannelName = toLower(channelName);
+    
+    // channel name s7i7?
+    if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
+        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // channel exists?
+    Channel* channel = server.getChannel(lowerChannelName);
+    if (!channel) {
+        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // client is in the channel?
+    if (!channel->isMember(client.getFd())) {
+        reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+
+
+    // client asking to show the channel topic
+    if (parsedMsg.params.size() < 2) {
+        if (channel->topic.empty()) {
+            // numeric reply 331 RPL_NOTOPIC: no topic is set
+            reply = makeReply(serverName, 331, targetNick, "No topic is set", channelName);
+        }
+        else {
+            // numeric reply 332 RPL_TOPIC: show the set topic
+            reply = makeReply(serverName, 332, targetNick, channel->getTopic(), channelName);
+            client.getSendQueue() += reply;
+            // numeric reply 333 RPL_TOPICWHOTIME: show who set topic, and when they did
+            reply = makeReply(serverName, 333, targetNick, channel->topicUpdateTime, channelName + " " + channel->topicUpdateUser); // it's in the following format: // :silver.libera.chat 333 hwa #linux nkukard 1722815284
+        }
+        client.getSendQueue() += reply;
+        return;
+    }
+
+    // client wants to change the channel topic
+    else {
+        std::string newTopic = parsedMsg.params[1];
+
+        // if channel is topic restricted, and client is no operator, can't do shit
+        if (channel->isTopicRestricted() && !channel->isOperator(client.getFd())) {
+            // numeric reply 482 ERR_CHANOPRIVSNEEDED: need operator privilege
+            reply = makeReply(serverName, 482, targetNick, "You're not a channel operator", channelName);
+            client.getSendQueue() += reply;
+            return ;
+        }
+
+        // same topic, no need for changes nor notifying others
+        else if (newTopic == channel->getTopic()) {
+            return ;
+        }
+
+        // change the channel's topic, and notify everyone
+        else {
+            // build TOPIC message
+            std::string topicMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost TOPIC " + channelName + " :" + newTopic + "\r\n";
+
+            // change topic name for the channel
+            channel->setTopic(newTopic);
+
+            // send TOPIC message to all members in the channel
+            const std::set<int>& members = channel->getMembers();
+            for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
+                std::map<int, Client>::iterator iter = server.getMap().find(*it);
+                if (iter != server.getMap().end()) {
+                    iter->second.getSendQueue() += topicMsg;
+
+                    struct epoll_event current_ev;
+                    memset(&current_ev, 0, sizeof(current_ev));
+                    current_ev.events = EPOLLOUT | EPOLLIN;
+                    current_ev.data.fd = *it;
+                    epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+                }
+            }
+        }
+    }    
 }
