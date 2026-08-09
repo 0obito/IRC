@@ -539,3 +539,113 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         }
     }
 }
+
+// Syntax: KICK #channel client [reason]
+void handleKICK(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+    
+    // registered?
+    if (!client.isRegistered()) {
+        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // enough parameters?
+    if (parsedMsg.params.size() < 2) {
+        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    std::string channelName = parsedMsg.params[0];
+    std::string targetToKick = parsedMsg.params[1];
+    std::string reason = parsedMsg.params.size() > 2 ? parsedMsg.params[2] : "No reason given";
+    std::string lowerChannelName = toLower(channelName);
+    
+    // channel name s7i7?
+    if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
+        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // channel exists?
+    Channel* channel = server.getChannel(lowerChannelName);
+    if (!channel) {
+        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // client is in the channel?
+    if (!channel->isMember(client.getFd())) {
+        reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // client is a channel operator?
+    if (!channel->isOperator(client.getFd())) {
+        reply = makeReply(serverName, 482, targetNick, "You're not channel operator", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // target client nickname kayn?
+    int targetFd = server.isNicknameTaken(targetToKick);
+    if (targetFd == -1) {
+        reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToKick);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // target is in the channel?
+    if (!channel->isMember(targetFd)) {
+        reply = makeReply(serverName, 441, targetNick, "They aren't on that channel", targetToKick + " " + channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // kick yourself? la asa7bi!
+    if (targetFd == client.getFd()) {
+        reply = makeReply(serverName, 482, targetNick, "You can't kick yourself", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // build KICK message
+    std::string kickMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost KICK " + channelName + " " + targetToKick + " :" + reason + "\r\n";
+    
+    // send KICK to all members in the channel
+    const std::set<int>& members = channel->getMembers();
+    for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
+        std::map<int, Client>::iterator iter = server.getMap().find(*it);
+        if (iter != server.getMap().end()) {
+            iter->second.getSendQueue() += kickMsg;
+            
+            struct epoll_event current_ev;
+            memset(&current_ev, 0, sizeof(current_ev));
+            current_ev.events = EPOLLOUT | EPOLLIN;
+            current_ev.data.fd = *it;
+            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+        }
+    }
+    
+    // remove target from channel
+    channel->removeMember(targetFd);
+    
+    // find target client and remove channel from their list
+    std::map<int, Client>::iterator targetIter = server.getMap().find(targetFd);
+    if (targetIter != server.getMap().end()) {
+        targetIter->second.leaveChannel(lowerChannelName);
+    }
+    
+    // delete channel if empty
+    if (channel->getMembers().empty()) {
+        server.removeChannel(lowerChannelName);
+        delete channel;
+    }
+}
