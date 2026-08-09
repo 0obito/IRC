@@ -99,7 +99,7 @@ void    Server::disconnect() {
 
     while(it != clientMap.end()) {
         std::cout << it->first << std::endl;
-        handeleDisconnect(++it);
+        handeleDisconnect(it++);
     }
     close(epfd);
 }
