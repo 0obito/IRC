@@ -4,3 +4,50 @@ Modified privmsg, so it works both with nicknames and channels.
 It's looking fine but I can't be sure because there seems to be some issues with JOIN/PART
 
 Working next on that.
+
+
+
+MODE function flow in DispatcherUtils.cpp
+
+                    MODE
+                     │
+                     ▼
+             Is client registered?
+                /           \
+              NO             YES
+              │               │
+             451              ▼
+                      Are parameters present?
+                          /          \
+                        NO            YES
+                        │              │
+                       461             ▼
+                              Is target '#' or '&' ?
+                                /            \
+                            YES               NO
+                             │                 │
+                             ▼                 502
+                       Find channel
+                             │
+                     Does channel exist?
+                       /            \
+                     NO              YES
+                     │                │
+                    403               ▼
+                              Is client member?
+                                /       \
+                              NO         YES
+                              │           │
+                             442          ▼
+                                    Is client operator?
+                                      /       \
+                                    NO         YES
+                                    │           │
+                                   482          ▼
+                                           MODE processing
+                                                │
+                              ┌─────────────────┼─────────────────┐
+                              │       │         │        │        │
+                              i       o         k        l        t
+                              │       │         │        │        │
+                           invite   operator   key     limit    topic

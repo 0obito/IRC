@@ -588,7 +588,7 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
     }
     
     // target client nickname kayn?
-    int targetFd = server.isNicknameTaken(targetToKick);
+    int targetFd = server.nicknameOwner(targetToKick);
     if (targetFd == -1) {
         reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToKick);
         client.getSendQueue() += reply;
@@ -797,7 +797,7 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
     }
     
     // the target client to invite
-    int targetFd = server.isNicknameTaken(targetToInvite);
+    int targetFd = server.nicknameOwner(targetToInvite);
     if (targetFd == -1) {
         reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToInvite);
         client.getSendQueue() += reply;
@@ -829,5 +829,163 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
         current_ev.events = EPOLLOUT | EPOLLIN;
         current_ev.data.fd = targetFd;
         epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, targetFd, &current_ev);
+    }
+}
+
+void handleMODE(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+    
+    if (!client.isRegistered()) {
+        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    if (parsedMsg.params.empty()) {
+        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    std::string target = parsedMsg.params[0];
+    
+    // Check if target is a channel (starts with # or &)
+    if (!target.empty() && (target[0] == '#' || target[0] == '&')) {
+        // CHANNEL MODE
+        std::string lowerChannelName = toLower(target);
+        
+        // Check if channel exists
+        Channel* channel = server.getChannel(lowerChannelName);
+        if (!channel) {
+            reply = makeReply(serverName, 403, targetNick, "No such channel", target);
+            client.getSendQueue() += reply;
+            return;
+        }
+        
+        // Check if client is in the channel
+        if (!channel->isMember(client.getFd())) {
+            reply = makeReply(serverName, 442, targetNick, "You're not on that channel", target);
+            client.getSendQueue() += reply;
+            return;
+        }
+        
+        // Check if client is operator
+        if (!channel->isOperator(client.getFd())) {
+            reply = makeReply(serverName, 482, targetNick, "You're not channel operator", target);
+            client.getSendQueue() += reply;
+            return;
+        }
+        
+        // If no mode parameters, show current modes
+        if (parsedMsg.params.size() < 2) {
+            // Send current modes
+            std::string modeString = "+";
+            if (channel->isInviteOnly()) modeString += "i";
+            if (channel->isTopicRestricted()) modeString += "t";
+            if (!channel->getKey().empty()) modeString += "k";
+            if (channel->isFull()) modeString += "l";
+            
+            reply = makeReply(serverName, 324, targetNick, channel->getName() + " " + modeString);
+            client.getSendQueue() += reply;
+            return;
+        }
+        
+        std::string modeChanges = parsedMsg.params[1];
+        bool adding = true;
+        
+        // Process each mode character
+        for (size_t i = 0; i < modeChanges.length(); i++) {
+            char c = modeChanges[i];
+            
+            if (c == '+') {
+                adding = true;
+            } else if (c == '-') {
+                adding = false;
+            } else if (c == 'i') {
+                // i mode
+                channel->setInviteOnly(adding);
+            } else if (c == 'o') {
+                // o mode
+                if (parsedMsg.params.size() < 3) {
+                    reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +o", parsedMsg.command);
+                    client.getSendQueue() += reply;
+                    continue;
+                }
+                
+                std::string nickParam = parsedMsg.params[2];
+                int targetFd = server.nicknameOwner(nickParam);
+                
+                if (targetFd == -1) {
+                    reply = makeReply(serverName, 401, targetNick, "No such nick", nickParam);
+                    client.getSendQueue() += reply;
+                    continue;
+                }
+                
+                if (!channel->isMember(targetFd)) {
+                    reply = makeReply(serverName, 441, targetNick, "They aren't on that channel", nickParam + " " + channel->getName());
+                    client.getSendQueue() += reply;
+                    continue;
+                }
+                
+                if (adding) {
+                    channel->addOperator(targetFd);
+                } else {
+                    channel->removeOperator(targetFd);
+                }
+                
+                // Broadcast o mode change to channel
+                std::string modeMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost MODE " + channel->getName() + " " + (adding ? "+" : "-") + "o " + nickParam + "\r\n";
+                const std::set<int>& members = channel->getMembers();
+                for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
+                    std::map<int, Client>::iterator iter = server.getMap().find(*it);
+                    if (iter != server.getMap().end()) {
+                        iter->second.getSendQueue() += modeMsg;
+                        
+                        struct epoll_event current_ev;
+                        memset(&current_ev, 0, sizeof(current_ev));
+                        current_ev.events = EPOLLOUT | EPOLLIN;
+                        current_ev.data.fd = *it;
+                        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+                    }
+                }
+                
+            } else if (c == 'k') {
+                // k mode
+                if (adding) {
+                    if (parsedMsg.params.size() < 3) {
+                        reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +k", parsedMsg.command);
+                        client.getSendQueue() += reply;
+                        continue;
+                    }
+                    channel->setKey(parsedMsg.params[2]);
+                } else {
+                    channel->setKey("");
+                }
+            } else if (c == 'l') {
+                // l mode
+                if (adding) {
+                    if (parsedMsg.params.size() < 3) {
+                        reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +l", parsedMsg.command);
+                        client.getSendQueue() += reply;
+                        continue;
+                    }
+                    int limit = atoi(parsedMsg.params[2].c_str());
+                    if (limit > 0) {
+                        channel->setUserLimit(limit);
+                    }
+                } else {
+                    channel->setUserLimit(0);
+                }
+            } else if (c == 't') {
+                // t mode
+                channel->setTopicRestricted(adding);
+            }
+        }
+    } else {
+        // we're not required to handle USER MODE
+        reply = makeReply(serverName, 502, targetNick, "Cannot change user mode");
+        client.getSendQueue() += reply;
     }
 }
