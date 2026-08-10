@@ -747,3 +747,87 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
         }
     }    
 }
+
+
+//Syntax: INVITE nickname #channel
+void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
+    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string serverName = server.getServerName();
+    std::string reply;
+    
+    if (!client.isRegistered()) {
+        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    if (parsedMsg.params.size() < 2) {
+        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    std::string targetToInvite = parsedMsg.params[0];
+    std::string channelName = parsedMsg.params[1];
+    std::string lowerChannelName = toLower(channelName);
+    
+    if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
+        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    Channel* channel = server.getChannel(lowerChannelName);
+    if (!channel) {
+        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    if (channel->isInviteOnly() && !channel->isMember(client.getFd())) {
+        reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    if (channel->isInviteOnly() && !channel->isOperator(client.getFd())) {
+        reply = makeReply(serverName, 482, targetNick, "You're not channel operator", channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // the target client to invite
+    int targetFd = server.isNicknameTaken(targetToInvite);
+    if (targetFd == -1) {
+        reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToInvite);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // is he already in the channel?
+    if (channel->isMember(targetFd)) {
+        reply = makeReply(serverName, 443, targetNick, "is already on channel", targetToInvite + " " + channelName);
+        client.getSendQueue() += reply;
+        return;
+    }
+    
+    // nzidouh l invite list
+    channel->invite(targetFd);
+    
+    // send confirmation to inviter
+    reply = makeReply(serverName, 341, targetNick, "Inviting " + targetToInvite + " to " + channelName);
+    client.getSendQueue() += reply;
+    
+    // send INVITE notification to target
+    std::map<int, Client>::iterator targetIter = server.getMap().find(targetFd);
+    if (targetIter != server.getMap().end()) {
+        std::string inviteMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost INVITE " + targetToInvite + " :" + channelName + "\r\n";
+        targetIter->second.getSendQueue() += inviteMsg;
+        
+        struct epoll_event current_ev;
+        memset(&current_ev, 0, sizeof(current_ev));
+        current_ev.events = EPOLLOUT | EPOLLIN;
+        current_ev.data.fd = targetFd;
+        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, targetFd, &current_ev);
+    }
+}
