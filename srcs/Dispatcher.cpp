@@ -15,6 +15,12 @@ commandDispatcher::commandDispatcher() {
     _handlers["PART"] = &handlePART;
     _handlers["KICK"] = &handleKICK;
     _handlers["NOTICE"] = &handleNOTICE;
+    _handlers["ORBIS"] = &Boot;
+    _Boothandlers["HELPE"] = &handleBootHelpe;
+    _Boothandlers["USERS"] = &handleBootUsers;
+    _Boothandlers["ANONYME"] = &handleBootAnonyme;
+    _Boothandlers["JOKE"] = &handleBootJoke;
+    _Boothandlers["ROLES"] = &handleBootRoles;
 }
 
 commandDispatcher::commandDispatcher(const commandDispatcher& other) {

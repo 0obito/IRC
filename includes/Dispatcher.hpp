@@ -16,6 +16,7 @@ typedef void (*commandHandler)(Server& server, Client& client, Command& parsedMs
 class commandDispatcher {
     private:
         std::map<std::string, commandHandler> _handlers;
+        std::map<std::string, commandHandler> _Boothandlers;
 
     public:
         commandDispatcher();
@@ -24,6 +25,15 @@ class commandDispatcher {
         ~commandDispatcher();
 
         void routeCommand(Server& server, Client& client, Command& parsedMsg);
+        void handleBoot(Server& server, Client& client, Command& parsedMsg);
 };
+
+void    Boot(Server& server, Client& client, Command& parsedMsg);
+void    handleBootHelpe(Server& server, Client& client, Command& parsedMsg);
+void    handleBootUsers(Server& server, Client& client, Command& parsedMsg);
+void    handleBootAnonyme(Server& server, Client& client, Command& parsedMsg);
+void    handleBootRoles(Server& server, Client& client, Command& parsedMsg);
+void    handleBootJoke(Server& server, Client& client, Command& parsedMsg);
+
 
 #endif /* DISPATCHER_HPP */
