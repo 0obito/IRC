@@ -3,6 +3,7 @@
 
 #include <string>
 #include <set>
+#include <ctime>
 
 /*
  * Channel class
@@ -18,10 +19,12 @@ private:
     std::string topic;
     std::string key;
 
-    int userLimit;
+    int         userLimit;
+    bool        inviteOnly;
+    bool        topicRestricted;
 
-    bool inviteOnly;
-    bool topicRestricted;
+    std::string topicUpdateTime;
+    std::string topicUpdateUser;
 
     std::set<int> memberFds;
     std::set<int> operatorFds;
@@ -66,6 +69,12 @@ public:
     void invite(int fd);
     bool isInvited(int fd) const;
     void removeInvite(int fd);
+
+    // 🔹 TOPIC getter and setter funcs
+    std::string     getTopicUpdateTime() const;
+    std::string     getTopicUpdateUser() const;
+    void            setTopicUpdateTime(std::time_t t);
+    void            setTopicUpdateUser(std::string& s);
 };
 
 #endif /* CHANNEL_HPP */

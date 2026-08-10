@@ -31,7 +31,6 @@ void welcomingSeq(Client& client, const std::string serverName) {
 
     std::string finalMsg = ss.str();
     client.getSendQueue() += finalMsg;
-    // std::cout << finalMsg;
     return ;
 }
 
@@ -588,7 +587,7 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
     }
     
     // target client nickname kayn?
-    int targetFd = server.isNicknameTaken(targetToKick);
+    int targetFd = server.nicknameOwner(targetToKick);
     if (targetFd == -1) {
         reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToKick);
         client.getSendQueue() += reply;
@@ -654,7 +653,7 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // enough parameters?
     if (parsedMsg.params.size() < 1) {
         reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
@@ -664,14 +663,14 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
 
     std::string channelName = parsedMsg.params[0];
     std::string lowerChannelName = toLower(channelName);
-    
+
     // channel name s7i7?
     if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
         reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // channel exists?
     Channel* channel = server.getChannel(lowerChannelName);
     if (!channel) {
@@ -679,7 +678,7 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // client is in the channel?
     if (!channel->isMember(client.getFd())) {
         reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
@@ -687,10 +686,9 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
         return;
     }
 
-
     // client asking to show the channel topic
     if (parsedMsg.params.size() < 2) {
-        if (channel->topic.empty()) {
+        if (channel->getTopic().empty()) {
             // numeric reply 331 RPL_NOTOPIC: no topic is set
             reply = makeReply(serverName, 331, targetNick, "No topic is set", channelName);
         }
@@ -699,12 +697,12 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
             reply = makeReply(serverName, 332, targetNick, channel->getTopic(), channelName);
             client.getSendQueue() += reply;
             // numeric reply 333 RPL_TOPICWHOTIME: show who set topic, and when they did
-            reply = makeReply(serverName, 333, targetNick, channel->topicUpdateTime, channelName + " " + channel->topicUpdateUser); // it's in the following format: // :silver.libera.chat 333 hwa #linux nkukard 1722815284
+            reply = makeReply(serverName, 333, targetNick, channel->getTopicUpdateTime(), channelName + " " + channel->getTopicUpdateUser()); // it's in the following format: :silver.libera.chat 333 hwa #linux nkukard 1722815284
         }
         client.getSendQueue() += reply;
         return;
-    }
 
+    }
     // client wants to change the channel topic
     else {
         std::string newTopic = parsedMsg.params[1];
@@ -729,6 +727,9 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
 
             // change topic name for the channel
             channel->setTopic(newTopic);
+            channel->setTopicUpdateTime(time(NULL));
+            std::string topicChanger = client.getNick() + "!" + client.getUser() + "@" + "localhost";
+            channel->setTopicUpdateUser(topicChanger);
 
             // send TOPIC message to all members in the channel
             const std::set<int>& members = channel->getMembers();

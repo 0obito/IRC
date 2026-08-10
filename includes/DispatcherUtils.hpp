@@ -20,5 +20,6 @@ void handleNOTICE(Server &server, Client &client, Command &parsedMsg);
 void handleJOIN(Server &server, Client &client, Command &parsedMsg);
 void handlePART(Server &server, Client &client, Command &parsedMsg);
 void handleKICK(Server &server, Client &client, Command &parsedMsg);
+void handleTOPIC(Server &server, Client &client, Command &parsedMsg);
 
 #endif /* DISPATCHER_UTILS_HPP */
