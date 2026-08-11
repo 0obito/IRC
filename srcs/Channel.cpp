@@ -132,3 +132,21 @@ void Channel::removeInvite(int fd)
 {
     inviteList.erase(fd);
 }
+
+const std::string& Channel::getTopicUpdateTime() const {
+    return topicUpdatedAt;
+}
+
+const std::string& Channel::getTopicUpdateUser() const {
+    return topicUpdatedBy;
+}
+
+void Channel::setTopicUpdateTime(std::time_t t) {
+    std::stringstream ss;
+    ss << t;
+    topicUpdatedAt = ss.str();
+}
+
+void Channel::setTopicUpdateUser(std::string& s) {
+    topicUpdatedBy = s;
+}

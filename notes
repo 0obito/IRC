@@ -1,6 +1,0 @@
-Down here is everything that happened in this patch:
-
-Modified privmsg, so it works both with nicknames and channels.
-It's looking fine but I can't be sure because there seems to be some issues with JOIN/PART
-
-Working next on that.

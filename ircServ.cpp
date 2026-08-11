@@ -28,6 +28,7 @@ int main(int ac, char *av[]) {
     }
     std::cout << "[SUCCESS] Starting server on port " << port << "...\n";
     std::signal(SIGINT, signal_handler);
+    std::signal(SIGQUIT, signal_handler);
     Server server(port, av[2]);
 
     return 0;

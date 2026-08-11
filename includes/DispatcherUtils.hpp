@@ -22,5 +22,6 @@ void handlePART(Server &server, Client &client, Command &parsedMsg);
 void handleKICK(Server &server, Client &client, Command &parsedMsg);
 void handleTOPIC(Server &server, Client &client, Command &parsedMsg);
 void handleINVITE(Server &server, Client &client, Command &parsedMsg);
+void handleMODE(Server& server, Client& client, Command& parsedMsg);
 
 #endif /* DISPATCHER_UTILS_HPP */
