@@ -4,10 +4,11 @@
 #include <string>
 #include <sstream>
 #include <iostream>
-#include "../includes/Server.hpp"
-#include "../includes/Client.hpp"
-#include "../includes/Parser.hpp"
-#include "../includes/Dispatcher.hpp"
+#include <cstring>
+
+class  Server;
+class  Client;
+struct Command;
 
 void handleCAP(Server &server, Client &client, Command &parsedMsg);
 void handlePASS(Server &server, Client &client, Command &parsedMsg);
@@ -24,4 +25,4 @@ void handleTOPIC(Server &server, Client &client, Command &parsedMsg);
 void handleINVITE(Server &server, Client &client, Command &parsedMsg);
 void handleMODE(Server& server, Client& client, Command& parsedMsg);
 
-#endif /* DISPATCHER_UTILS_HPP */
+#endif

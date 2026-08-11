@@ -8,12 +8,10 @@ Channel::Channel(const std::string &n)
       userLimit(0),
       inviteOnly(false),
       topicRestricted(false)
-{
-}
+{}
 
 Channel::~Channel()
-{
-}
+{}
 
 const std::string &Channel::getName() const {
     return name;

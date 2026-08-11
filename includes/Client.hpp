@@ -83,4 +83,4 @@ public:
     void    setWaitingForPong(bool status);
 };
 
-#endif /* CLIENT_HPP */
+#endif

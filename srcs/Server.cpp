@@ -1,7 +1,11 @@
 #include "../includes/Server.hpp"
+
+#include "../includes/Client.hpp"
 #include "../includes/Parser.hpp"
+#include "../includes/Channel.hpp"
 #include "../includes/Dispatcher.hpp"
 #include "../includes/Utils.hpp"
+
 
 // canonical form
 Server::Server(int port_in, const std::string& pwd) {

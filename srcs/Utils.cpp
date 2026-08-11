@@ -1,5 +1,10 @@
 #include "../includes/Utils.hpp"
 
+#include "../includes/Server.hpp"
+#include "../includes/Client.hpp"
+#include "../includes/Parser.hpp"
+#include "../includes/Channel.hpp"
+
 std::string makeReply(const std::string &serverName, int code, const std::string &target, const std::string &msg, const std::string &extraArgs)
 {
     std::stringstream ss;

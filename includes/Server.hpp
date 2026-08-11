@@ -5,14 +5,18 @@
 #include <sys/epoll.h>
 #include <netinet/in.h>
 #include <unistd.h>
+
 #include <cerrno>
 #include <cstdlib>
-#include <cstring>
-#include <iostream>
 #include <csignal>
+#include <cstring>
+
 #include <map>
-#include "./Channel.hpp"
-#include "./Client.hpp"
+#include <iostream>
+#include <string>
+
+class Channel;
+class Client;
 
 class Server {
 private:
@@ -60,4 +64,5 @@ public:
 };
 
 extern int  signal_status;
-#endif /*SERVER_HPP*/
+
+#endif

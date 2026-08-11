@@ -2,6 +2,7 @@
 #define CHANNEL_HPP
 
 #include <string>
+#include <sstream>
 #include <set>
 #include <ctime>
 
@@ -77,4 +78,4 @@ public:
     void    setTopicUpdateUser(std::string& s);
 };
 
-#endif /* CHANNEL_HPP */
+#endif

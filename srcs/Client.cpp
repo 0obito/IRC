@@ -1,6 +1,5 @@
 #include "../includes/Client.hpp"
 #include "../includes/Utils.hpp"
-#include <ctime>
 
 Client::Client(int fd)
     : fd(fd),
@@ -9,10 +8,9 @@ Client::Client(int fd)
       userOk(false),
       registerOk(false),
       dead(false),
+      lastActivity(time(NULL)),
       waitingForPong(false)
-{
-    lastActivity = time(NULL);
-}
+{}
 
 Client::~Client() {}
 

@@ -1,10 +1,10 @@
-#include "../includes/Dispatcher.hpp"
 #include "../includes/DispatcherUtils.hpp"
+
 #include "../includes/Server.hpp"
+#include "../includes/Client.hpp"
+#include "../includes/Parser.hpp"
 #include "../includes/Utils.hpp"
 #include "../includes/Channel.hpp"
-#include <string.h>
-#include <sstream>
 
 // an example for a welcoming sequence, might change a thing or two later
 // i am not sure if this could've been built using makeReply(), I built it before checking the method :-)

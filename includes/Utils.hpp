@@ -3,10 +3,10 @@
 
 #include <string>
 #include <sstream>
-#include <cctype>
-#include "Server.hpp"
-#include "Channel.hpp"
-#include "Parser.hpp"
+
+class  Server;
+class  Client;
+struct Command;
 
 /*
  * Utils
@@ -21,4 +21,4 @@ std::string makeReply(const std::string &serverName, int code, const std::string
 void        sendToClient(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText);
 void        broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText);
 
-#endif /* UTILS_HPP */
+#endif

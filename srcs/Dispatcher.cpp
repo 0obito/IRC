@@ -2,6 +2,10 @@
 #include "../includes/DispatcherUtils.hpp"
 #include "../includes/Utils.hpp"
 
+#include "../includes/Server.hpp"
+#include "../includes/Client.hpp"
+#include "../includes/Parser.hpp"
+
 commandDispatcher::commandDispatcher() {
     _handlers["CAP"]  = &handleCAP;
     _handlers["PASS"] = &handlePASS;
@@ -17,17 +21,6 @@ commandDispatcher::commandDispatcher() {
     _handlers["TOPIC"] = &handleTOPIC;
     _handlers["INVITE"] = &handleINVITE;
     _handlers["MODE"] = &handleMODE;
-}
-
-commandDispatcher::commandDispatcher(const commandDispatcher& other) {
-    this->_handlers = other._handlers;
-}
-
-commandDispatcher& commandDispatcher::operator=(const commandDispatcher& other) {
-    if (this != &other) {
-        this->_handlers = other._handlers;
-    }
-    return *this;
 }
 
 commandDispatcher::~commandDispatcher() {
@@ -48,6 +41,5 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
 
         reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
         client.getSendQueue() += reply;
-        // std::cerr << "ERR_UNKNOWNCOMMAND (421)" << std::endl;
     }
 }
