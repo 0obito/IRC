@@ -44,15 +44,6 @@ void registerClient(Client& client, const std::string serverName) {
     return ;
 }
 
-void handleCAP(Server& server, Client& client, Command& parsedMsg) {
-    (void)server;
-    (void)client;
-    (void)parsedMsg;
-    // std::string reply = ":" + server.getServerName() + " CAP * LS :\r\n";
-    // client.getSendQueue() += reply;
-    // std::cout << "CAP * LS :" << std::endl;
-}
-
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
@@ -217,33 +208,6 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
         // it's to a user, send the message
         else {
             sendToClient(server, client, parsedMsg, singleTarget, messageText);
-        }
-    }
-}
-
-void handleNOTICE(Server& server, Client& client, Command& parsedMsg) {
-    if (!client.isRegistered() || parsedMsg.params.size() != 2) {
-        return ;
-    }
-    std::string rawTargets = parsedMsg.params[0];
-    std::string messageText = parsedMsg.params[1];
-    std::stringstream ss(rawTargets);
-    std::string singleTarget;
-    while (std::getline(ss, singleTarget, ',')) {
-        int targetFD = server.nicknameOwner(singleTarget);
-        if (targetFD == -1) {
-            continue;
-        }
-        std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
-        if (iter != server.getMap().end()) {
-            std::string reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 NOTICE " 
-                    + iter->second.getNick() + " :" + messageText + "\r\n";
-            iter->second.getSendQueue() += reply;
-            struct epoll_event current_ev;
-            memset(&current_ev, 0, sizeof(current_ev));
-            current_ev.events = EPOLLOUT | EPOLLIN;
-            current_ev.data.fd = iter->first;
-            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
         }
     }
 }

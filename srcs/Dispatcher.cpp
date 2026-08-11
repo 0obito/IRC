@@ -7,14 +7,12 @@
 #include "../includes/Parser.hpp"
 
 commandDispatcher::commandDispatcher() {
-    _handlers["CAP"]  = &handleCAP;
     _handlers["PASS"] = &handlePASS;
     _handlers["NICK"] = &handleNICK;
     _handlers["USER"] = &handleUSER;
     _handlers["PRIVMSG"] = &handlePRIVMSG;
     _handlers["PING"] = &handlePING;
     _handlers["PONG"] = &handlePONG;
-    _handlers["NOTICE"] = &handleNOTICE;
     _handlers["JOIN"] = &handleJOIN;
     _handlers["PART"] = &handlePART;
     _handlers["KICK"] = &handleKICK;
