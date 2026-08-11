@@ -4,6 +4,13 @@
 #include <map>
 #include <string>
 
+/*
+ * commandDispatcher class
+ * It has a map with all command handlers.
+ * It uses routeCommand to look up the passed command and call
+ *  its corresponding "handler" function, if found ofc.
+ */
+
 class  Server;
 class  Client;
 struct Command;

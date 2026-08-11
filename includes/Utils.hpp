@@ -4,14 +4,15 @@
 #include <string>
 #include <sstream>
 
-class  Server;
-class  Client;
-struct Command;
-
 /*
  * Utils
  * Small helper functions
  */
+
+class  Server;
+class  Client;
+struct Command;
+
 std::string toLower(const std::string &s);
 std::string trim(const std::string &s);
 std::string itostr(int n);

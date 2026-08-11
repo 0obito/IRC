@@ -15,6 +15,12 @@
 #include <iostream>
 #include <string>
 
+/*
+ * Server
+ * The project's backbone.
+ * It containes everything server specific/related.
+ */
+
 class Channel;
 class Client;
 

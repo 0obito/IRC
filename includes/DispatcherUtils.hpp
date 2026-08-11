@@ -6,6 +6,11 @@
 #include <iostream>
 #include <cstring>
 
+/*
+ * dispatcherUtils
+ * contains all "handlers" function signatures
+ */
+
 class  Server;
 class  Client;
 struct Command;
