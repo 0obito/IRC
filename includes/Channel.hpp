@@ -23,8 +23,8 @@ private:
     bool        inviteOnly;
     bool        topicRestricted;
 
-    std::string topicUpdateTime;
-    std::string topicUpdateUser;
+    std::string topicUpdatedAt;
+    std::string topicUpdatedBy;
 
     std::set<int> memberFds;
     std::set<int> operatorFds;
@@ -71,10 +71,10 @@ public:
     void removeInvite(int fd);
 
     // 🔹 TOPIC getter and setter funcs
-    std::string     getTopicUpdateTime() const;
-    std::string     getTopicUpdateUser() const;
-    void            setTopicUpdateTime(std::time_t t);
-    void            setTopicUpdateUser(std::string& s);
+    const std::string&  getTopicUpdateTime() const;
+    const std::string&  getTopicUpdateUser() const;
+    void    setTopicUpdateTime(std::time_t t);
+    void    setTopicUpdateUser(std::string& s);
 };
 
 #endif /* CHANNEL_HPP */
