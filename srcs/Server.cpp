@@ -64,43 +64,26 @@ int                                     Server::nicknameOwner(std::string& nickn
 }
 
 
-
-///////////////////////////
-
 int Server::acceptNewClient() {
-    struct sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
+    struct sockaddr_in clientAddr;
+    socklen_t clientLen = sizeof(clientAddr);
 
-    int new_fd = accept(serversocket, (struct sockaddr*)&client_addr, &client_len);
+    int newFd = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientLen);
+    // only process if accept was successful, obviously
+    if (newFd != -1) {
+        // safe insert into map
+        clientMap.insert(std::make_pair(newFd, Client(newFd)));
 
-    // Only process if accept was successful
-    if (new_fd != -1) {
-        // Make the new client socket non-blocking too!
-        fcntl(new_fd, F_SETFL, O_NONBLOCK);
-
-        // Insert into map
-        clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
-
-        // Extract real IP and update the Client object
-        std::string ip = inet_ntoa(client_addr.sin_addr);
-        std::map<int, Client>::iterator it = clientMap.find(new_fd);
+        // get client ip, add it to the object
+        std::string ip = inet_ntoa(clientAddr.sin_addr);
+        std::map<int, Client>::iterator it = clientMap.find(newFd);
         if (it != clientMap.end()) {
             it->second.setHostname(ip);
         }
     }
-    return new_fd;
+    return newFd;
 }
 
-//////////////////////////
-
-
-
-// modifiers
-int             Server::acceptNewClient() {
-    int new_fd = accept(serverSocket, NULL, NULL);
-    clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
-    return (new_fd);
-}
 
 void            Server::addChannel(Channel* channel) {
     chansMap[channel->getName()] = channel;
