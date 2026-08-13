@@ -90,7 +90,7 @@ void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::st
         memset(&current_ev, 0, sizeof(current_ev));
         current_ev.events = EPOLLOUT | EPOLLIN;
         current_ev.data.fd = iter->first;
-        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, iter->first, &current_ev);
+        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, iter->first, &current_ev);
     }
 }
 
@@ -129,6 +129,6 @@ void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, s
         memset(&current_ev, 0, sizeof(current_ev));
         current_ev.events = EPOLLOUT | EPOLLIN;
         current_ev.data.fd = tempClient.getFd();
-        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, tempClient.getFd(), &current_ev);
+        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, tempClient.getFd(), &current_ev);
     }
 }

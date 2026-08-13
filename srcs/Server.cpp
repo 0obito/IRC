@@ -8,17 +8,20 @@
 
 
 // canonical form
-Server::Server(int port_in, const std::string& pwd) {
-    port = port_in;
-    password = pwd;
-    serverName = "ircDyalna";
-    initserver();
-    run();
-    multiplexar();
-}
+Server::Server(int port_in, const std::string& pwd) 
+    :port(port_in),
+    password(pwd),
+    serverName("ircDyalna"), 
+    serverSocket(-1),
+    epfd(-1)
+{}
 
 Server::~Server() {
-    close(serversocket);
+    if (serverSocket != -1) {
+        close(serverSocket);
+        serverSocket = -1;
+    }
+    disconnectServer();
 }
 
 
@@ -32,10 +35,10 @@ const std::string&                      Server::getPassword() const {
 }
 
 std::map<std::string, Channel*>&        Server::getChannels() {
-    return _channels;
+    return chansMap;
 }
 
-int                                     Server::get_epfd() const {
+int                                     Server::getEPFD() const {
     return epfd;
 }
 
@@ -44,8 +47,8 @@ std::map<int, Client>&                  Server::getMap() {
 }
 
 Channel*                                Server::getChannel(const std::string& name) {
-    std::map<std::string, Channel*>::iterator it = _channels.find(name);
-    if (it != _channels.end())
+    std::map<std::string, Channel*>::iterator it = chansMap.find(name);
+    if (it != chansMap.end())
         return it->second;
     return NULL;
 }
@@ -54,61 +57,107 @@ int                                     Server::nicknameOwner(std::string& nickn
     std::map<int, Client>::iterator it;
 
     for(it = clientMap.begin(); it != clientMap.end(); it++){
-        if (it->second.getNick() == nickname)
+        if (it->second.getNickOk() && it->second.getNick() == nickname)
             return(it->second.getFd());
     }
     return(-1);
 }
 
 
+
+///////////////////////////
+
+int Server::acceptNewClient() {
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int new_fd = accept(serversocket, (struct sockaddr*)&client_addr, &client_len);
+
+    // Only process if accept was successful
+    if (new_fd != -1) {
+        // Make the new client socket non-blocking too!
+        fcntl(new_fd, F_SETFL, O_NONBLOCK);
+
+        // Insert into map
+        clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
+
+        // Extract real IP and update the Client object
+        std::string ip = inet_ntoa(client_addr.sin_addr);
+        std::map<int, Client>::iterator it = clientMap.find(new_fd);
+        if (it != clientMap.end()) {
+            it->second.setHostname(ip);
+        }
+    }
+    return new_fd;
+}
+
+//////////////////////////
+
+
+
 // modifiers
 int             Server::acceptNewClient() {
-    int new_fd = accept(serversocket, NULL, NULL);
+    int new_fd = accept(serverSocket, NULL, NULL);
     clientMap.insert(std::make_pair(new_fd, Client(new_fd)));
     return (new_fd);
 }
 
 void            Server::addChannel(Channel* channel) {
-    _channels[channel->getName()] = channel;
+    chansMap[channel->getName()] = channel;
 }
 
 void            Server::removeChannel(const std::string& name) {
     std::string lowerName = toLower(name);
-    std::map<std::string, Channel*>::iterator it = _channels.find(lowerName);
-    if (it != _channels.end()) {
-        _channels.erase(it);
+    std::map<std::string, Channel*>::iterator it = chansMap.find(lowerName);
+    if (it != chansMap.end()) {
+        chansMap.erase(it);
     }
 }
 
 
 // server backbone
-void            Server::initserver()
+void Server::disconnectServer() {
+    std::map<int, Client>::iterator clIt = clientMap.begin();
+    while (clIt != clientMap.end()) {
+        disconnectClient(clIt++);
+    }
+
+    std::map<std::string, Channel*>::iterator chIt = chansMap.begin();
+    while (chIt != chansMap.end()) {
+        delete chIt->second;
+        ++chIt;
+    }
+    chansMap.clear();
+
+    if (epfd != -1) {
+        close(epfd);
+        epfd = -1;
+    }
+}
+
+void            Server::initServer()
 {
+    memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = INADDR_ANY;
-}
-
-void            Server::run()
-{
-    serversocket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-    int opt = 1;
-    setsockopt(serversocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    bind(serversocket, (sockaddr*)&address, sizeof(address));
-    listen(serversocket, SOMAXCONN);
-}
-
-void    Server::disconnect() {
-    std::map<int, Client>::iterator it = clientMap.begin();
-
-    while(it != clientMap.end()) {
-        std::cout << it->first << std::endl;
-        handeleDisconnect(it++);
+    serverSocket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    if (serverSocket == -1) {
+        throw std::runtime_error("Failed to create server socket");
     }
-    close(epfd);
+    int opt = 1;
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        throw std::runtime_error("Failed to set socket options");
+    }
+    if (bind(serverSocket, (sockaddr*)&address, sizeof(address)) == -1) {
+        throw std::runtime_error("Failed to bind to port (is it already in use?)");
+    }
+    if (listen(serverSocket, SOMAXCONN) == -1) {
+        throw std::runtime_error("Failed to listen on socket");
+    }
 }
 
-void            Server::multiplexar()
+void            Server::multiplexer()
 {
     char                    buffer[1024];
     int                     nfds;
@@ -118,23 +167,24 @@ void            Server::multiplexar()
     struct epoll_event      ev;
 
     epfd = epoll_create1(0);
+    // ISSUE. exits without cleaning ffs
     if (epfd < 0) {
         std::cerr << "[ERROR] Creating an epoll instance has failed!\n";
         exit(1);
     }
     memset(&ev, 0, sizeof(ev));
     ev.events = EPOLLIN;
-    ev.data.fd = serversocket;
-    epoll_ctl(epfd, EPOLL_CTL_ADD, serversocket, &ev);
-    while(signal_status == 0) {
-        nfds = epoll_wait(epfd, event_buffer, MAX_EVENTS, 1000);
+    ev.data.fd = serverSocket;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, serverSocket, &ev);
+    while(signalStatus == 0) {
+        nfds = epoll_wait(epfd, eventBuffer, MAX_EVENTS, 1000);
         for (int i = 0; i < nfds; i++) {
-            current_fd = event_buffer[i].data.fd;
+            current_fd = eventBuffer[i].data.fd;
             std::map<int, Client>::iterator iter = clientMap.find(current_fd);
-            if (event_buffer[i].events & (EPOLLERR | EPOLLHUP)) {
-                Server::handeleDisconnect(iter);
+            if (eventBuffer[i].events & (EPOLLERR | EPOLLHUP)) {
+                Server::disconnectClient(iter);
             }
-            else if (current_fd == serversocket) {
+            else if (current_fd == serverSocket) {
                 new_fd = Server::acceptNewClient();
                 if (new_fd != -1) {
                     struct epoll_event client_ev;
@@ -144,7 +194,7 @@ void            Server::multiplexar()
                     epoll_ctl(epfd, EPOLL_CTL_ADD, new_fd, &client_ev);
                 }
             }
-            else if (event_buffer[i].events & EPOLLIN) {
+            else if (eventBuffer[i].events & EPOLLIN) {
                 ssize_t bytes = recv(current_fd, buffer, sizeof(buffer), MSG_DONTWAIT);
                 if (bytes > 0)
                 {
@@ -158,7 +208,7 @@ void            Server::multiplexar()
                         r_buf.append(buffer, bytes);
                         if (r_buf.size() > 4096)
                         {
-                            Server::handeleDisconnect(iter);
+                            Server::disconnectClient(iter);
                             continue;
                         }
                         // check if message full "\r\n"
@@ -168,7 +218,7 @@ void            Server::multiplexar()
                             r_buf.erase(0, position + 2);
                             if (line.size() > 510)
                             {
-                                Server::handeleDisconnect(iter);
+                                Server::disconnectClient(iter);
                                 break;
                             }
                             Command msg = Parser::parse(line);
@@ -188,13 +238,13 @@ void            Server::multiplexar()
                     }
                 }
                 else if (bytes == 0) {
-                    Server::handeleDisconnect(iter);
+                    Server::disconnectClient(iter);
                 }
                 else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                        Server::handeleDisconnect(iter);
+                        Server::disconnectClient(iter);
                 }
             }
-            else if (event_buffer[i].events & EPOLLOUT) {
+            else if (eventBuffer[i].events & EPOLLOUT) {
                 if (iter == clientMap.end()) {
                     std::cerr << "[ERROR] Couldn't find client with file descriptor number " << current_fd << std::endl;
                     // [?] need to handle error here (close the client or whatever). if nothing to clean then continue to the loop??...
@@ -210,7 +260,7 @@ void            Server::multiplexar()
                         epoll_ctl(epfd, EPOLL_CTL_MOD, current_fd, &current_ev);
                         if (iter->second.isDead()) {
                             std::cout << "client with fd: " << current_fd << " was disconnected.\n";
-                            handeleDisconnect(current_fd);
+                            disconnectClient(current_fd);
                         }
                     }
                 }
@@ -218,19 +268,20 @@ void            Server::multiplexar()
         }
         pingPong();
     }
-    disconnect();
+    disconnectServer();
 }
 
 
 // other
-void            Server::handeleDisconnect(int fd)
+void            Server::disconnectClient(int fd)
 {
     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
     close(fd);
     clientMap.erase(fd);
+    // ISSUE. loop through joined channels and disconnect, or broadcast a msg or smthg
 }
 
-void            Server::handeleDisconnect(std::map<int, Client>::iterator it)   // I newly added this, it's faster but we can't use it all the time
+void            Server::disconnectClient(std::map<int, Client>::iterator it)   // I newly added this, it's faster but we can't use it all the time
 {
     epoll_ctl(epfd, EPOLL_CTL_DEL, it->first, NULL);
     close(it->first);
@@ -247,7 +298,7 @@ ssize_t         Server::send_message(int fd, std::string &buf){
         buf.erase(0, send_size);
     }
     else if (send_size == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        Server::handeleDisconnect(fd);
+        Server::disconnectClient(fd);
     }
     return (send_size);
 }

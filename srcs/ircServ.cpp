@@ -1,12 +1,9 @@
-#include <iostream>
-#include <string>
-#include <sstream>
-#include "ircServ.hpp"
+#include "../includes/ircServ.hpp"
 
-int signal_status = 0;
+int signalStatus = 0;
 
-void    signal_handler(int signal) {
-    signal_status = signal;
+void    signalHandler(int signal) {
+    signalStatus = signal;
 }
 
 int main(int ac, char *av[]) {
@@ -26,10 +23,16 @@ int main(int ac, char *av[]) {
         std::cerr << "[ERROR] Port number should be between 1024 and 65535!\n";
         return 1;
     }
-    std::cout << "[SUCCESS] Starting server on port " << port << "...\n";
-    std::signal(SIGINT, signal_handler);
-    std::signal(SIGQUIT, signal_handler);
-    Server server(port, av[2]);
-
+    std::cout << "Starting server on port " << port << "...\n";
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGQUIT, signalHandler);
+    try {
+        Server server(port, av[2]);
+        server.initServer();
+        server.multiplexer();
+    }
+    catch (std::exception &e) {
+        std::cerr<< "[ERROR] " << e.what()<<std::endl;
+    }
     return 0;
 }

@@ -73,9 +73,10 @@ public:
     std::string &getSendQueue();
 
     // channels
-    void joinChannel(const std::string &name);
-    void leaveChannel(const std::string &name);
-    bool isInChannel(const std::string &name) const;
+    void                            joinChannel(const std::string &name);
+    void                            leaveChannel(const std::string &name);
+    bool                            isInChannel(const std::string &name) const;
+    const std::set<std::string>&    getJoinedChannels() const;
 
     void    updateActivity();
     time_t  getLastActivity() const;

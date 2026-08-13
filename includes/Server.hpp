@@ -1,9 +1,12 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#define MAX_EVENTS 100
+
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -14,6 +17,7 @@
 #include <map>
 #include <iostream>
 #include <string>
+
 
 /*
  * Server
@@ -26,31 +30,30 @@ class Client;
 
 class Server {
 private:
-    static const int                MAX_EVENTS = 100;
-    std::string                     serverName;
-    int                             serversocket;
+    Server();
     int                             port;
     std::string                     password;
+    std::string                     serverName;
+    int                             serverSocket;
     struct sockaddr_in              address;
     int                             epfd;
-    struct epoll_event              event_buffer[MAX_EVENTS];
+    struct epoll_event              eventBuffer[MAX_EVENTS];
     std::map<int, Client>           clientMap;
-    std::map<std::string, Channel*> _channels;
+    std::map<std::string, Channel*> chansMap;
 
 public:
-    // canonical form
+    // constructor / destructor
     Server(int port_in, const std::string& pwd);
     ~Server();
 
     // server backbone
-    void        initserver();
-    void        run();
-    void        multiplexar();
+    void        initServer();
+    void        multiplexer();
 
     // getters
     const std::string&                      getServerName() const;
     const std::string&                      getPassword() const;
-    int                                     get_epfd() const;
+    int                                     getEPFD() const;
     std::map<int, Client>&                  getMap();
     Channel*                                getChannel(const std::string& name);
     std::map<std::string, Channel*>&        getChannels();
@@ -62,13 +65,13 @@ public:
     void        removeChannel(const std::string& name);
 
     // other
-    void        handeleDisconnect(int fd);
-    void        handeleDisconnect(std::map<int, Client>::iterator);
+    void        disconnectClient(int fd);
+    void        disconnectClient(std::map<int, Client>::iterator);
     ssize_t     send_message(int fd, std::string& buf);
     void        pingPong();
-    void        disconnect();
+    void        disconnectServer();
 };
 
-extern int  signal_status;
+extern int  signalStatus;
 
 #endif

@@ -8,7 +8,7 @@ SRC_dir  = srcs/
 NAME  = ircserv
 SRC   = $(SRC_dir)Channel.cpp $(SRC_dir)Client.cpp $(SRC_dir)Dispatcher.cpp \
         $(SRC_dir)DispatcherUtils.cpp $(SRC_dir)Parser.cpp $(SRC_dir)Server.cpp \
-        $(SRC_dir)Utils.cpp ircServ.cpp
+        $(SRC_dir)Utils.cpp $(SRC_dir)ircServ.cpp
 
 OBJ   = $(SRC:$(SRC_dir)%.cpp=$(OBJ_dir)%.o)
 

@@ -118,6 +118,10 @@ bool Client::isInChannel(const std::string &name) const
     return channels.find(toLower(name)) != channels.end();
 }
 
+const std::set<std::string>& Client::getJoinedChannels() const {
+    return channels;
+}
+
 void Client::updateActivity() {
     lastActivity = time(NULL);
     waitingForPong = false;

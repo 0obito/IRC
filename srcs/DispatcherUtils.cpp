@@ -6,7 +6,6 @@
 #include "../includes/Utils.hpp"
 #include "../includes/Channel.hpp"
 
-// an example for a welcoming sequence, might change a thing or two later
 // i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
 void welcomingSeq(Client& client, const std::string serverName) {
     std::string nick = client.getNick();
@@ -15,7 +14,7 @@ void welcomingSeq(Client& client, const std::string serverName) {
     std::stringstream ss;
 
     ss << ":" << serverName << " 001 " << nick;
-    ss << " :Welcome to our Internet Relay Network " << nick << "!" << user << "@127.0.0.1\r\n";
+    ss << " :Welcome To NetworkDyalna " << nick << "!" << user << "@127.0.0.1\r\n";
 
     ss << ":" << serverName << " 002 " << nick;
     ss << " :Your host is " << serverName << ", running version " << version << "\r\n";
@@ -27,19 +26,18 @@ void welcomingSeq(Client& client, const std::string serverName) {
     ss << " " << serverName << " " << version << " io itkol\r\n";
 
     ss << ":" << serverName << " 005 " << nick;
-    ss << " CHANTYPES=# CHANNELLEN=32 NICKLEN=9 NETWORK=OurNetwork :are supported by this server\r\n";
+    ss << " CHANTYPES=# CHANNELLEN=32 NICKLEN=9 NETWORK=NetworkDyalna :are supported by this server\r\n";
 
     std::string finalMsg = ss.str();
     client.getSendQueue() += finalMsg;
     return ;
 }
 
+// CHECKED AND DONE
 void registerClient(Client& client, const std::string serverName) {
-    if (!client.isRegistered()) {
-        if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
-            client.setRegistered(true);
-            welcomingSeq(client, serverName);
-        }
+    if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
+        client.setRegistered(true);
+        welcomingSeq(client, serverName);
     }
     return ;
 }
@@ -86,49 +84,89 @@ bool nickIsValid(const std::string &nickName) {
     return true;
 }
 
+// CHECKED AND DONE [NO NOT YET!]
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
+    // password first my friend
     if (!client.getPassOk()) {
         reply = makeReply(serverName, 464, targetNick, "Password incorrect");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
         return ;
     }
+
+    // no nickname was passed
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 431, targetNick, "No nickname given");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NONICKNAMEGIVEN (431)" << std::endl;
         return ;
     }
-    if (parsedMsg.params.size() > 1) {
-        //  nick has more than 1 param
-        reply = makeReply(serverName, 461, targetNick, "Syntax error", parsedMsg.command);
-        client.getSendQueue() += reply;
-        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
-        return ;
-    }
+
     std::string nickName = parsedMsg.params[0];
-    if (client.getNickOk() && client.getNick() == nickName) {
-        return ;
-    }
-    if (server.nicknameOwner(nickName) != -1) {
-        reply = makeReply(serverName, 433, targetNick, "Nickname is already in use", nickName);
-        client.getSendQueue() += reply;
-        // std::cout << "ERR_NICKNAMEINUSE (433)" << std::endl;
-        return ;
-    }
+
+    // nickname is invalid
     if (!nickIsValid(nickName)) {
         reply = makeReply(serverName, 432, targetNick, "Erroneous nickname", nickName);
         client.getSendQueue() += reply;
-        // std::cout << "ERR_ERRONEUSNICKNAME (432)" << std::endl;
         return ;
     }
+
+    int nickOwner = server.nicknameOwner(nickName);
+
+    // nickname is used by someone else
+    if (nickOwner != -1 && nickOwner != client.getFd()) {
+        reply = makeReply(serverName, 433, targetNick, "Nickname is already in use", nickName);
+        client.getSendQueue() += reply;
+        return ;
+    }
+
+    std::string oldNick = client.getNick();
     client.setNick(nickName);
     client.setNickOk(true);
-    registerClient(client, serverName);
+
+    if (client.isRegistered()) {
+        // build NICK message
+        std::string nickMsg = ":" + oldNick + "!" + client.getUser() + "@localhost NICK :" + nickName + "\r\n";
+
+        // Send to the client first
+        client.getSendQueue() += nickMsg;
+
+        // Track people (fds) notified
+        std::set<int> notifiedFds;
+        notifiedFds.insert(client.getFd());
+
+        // Loop through all channels joined by client
+        const std::set<std::string>& myChannels = client.getJoinedChannels();
+        for (std::set<std::string>::const_iterator chIt = myChannels.begin(); chIt != myChannels.end(); ++chIt) {
+            Channel* channel = server.getChannel(*chIt);
+            if (channel) {
+                // Loop through all members of this channel
+                const std::set<int>& members = channel->getMembers();
+                for (std::set<int>::const_iterator memIt = members.begin(); memIt != members.end(); ++memIt) {
+                    // If we haven't notified them yet...
+                    if (notifiedFds.find(*memIt) == notifiedFds.end()) {
+                        std::map<int, Client>::iterator targetClient = server.getMap().find(*memIt);
+                        if (targetClient != server.getMap().end()) {
+                            targetClient->second.getSendQueue() += nickMsg;
+
+                            struct epoll_event current_ev;
+                            memset(&current_ev, 0, sizeof(current_ev));
+                            current_ev.events = EPOLLOUT | EPOLLIN;
+                            current_ev.data.fd = *memIt;
+                            epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *memIt, &current_ev);
+
+                            notifiedFds.insert(*memIt);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        registerClient(client, serverName);
+    }
     return ;
 }
 
@@ -140,19 +178,16 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
     if (client.isRegistered()) {
         reply = makeReply(serverName, 462, targetNick, "Unauthorized command (already registered)");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
     if (!client.getPassOk()) {
         reply = makeReply(serverName, 464, targetNick, "Password incorrect");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_PASSWDMISMATCH (464) | Password was not supplied" << std::endl;
         return ;
     }
-    if (parsedMsg.params.empty() || parsedMsg.params.size() < 4) {
+    if (parsedMsg.params.empty() || parsedMsg.params.size() < 4 || parsedMsg.params[3].empty()) {
         reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
     client.setUser(parsedMsg.params[0]);
@@ -373,7 +408,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
                     memset(&current_ev, 0, sizeof(current_ev));
                     current_ev.events = EPOLLOUT | EPOLLIN;
                     current_ev.data.fd = *it;
-                    epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+                    epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
                 }
             }
         }
@@ -480,7 +515,7 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
                 memset(&current_ev, 0, sizeof(current_ev));
                 current_ev.events = EPOLLOUT | EPOLLIN;
                 current_ev.data.fd = *it;
-                epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+                epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
             }
         }
 
@@ -586,7 +621,7 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
             memset(&current_ev, 0, sizeof(current_ev));
             current_ev.events = EPOLLOUT | EPOLLIN;
             current_ev.data.fd = *it;
-            epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+            epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
         }
     }
     
@@ -706,7 +741,7 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
                     memset(&current_ev, 0, sizeof(current_ev));
                     current_ev.events = EPOLLOUT | EPOLLIN;
                     current_ev.data.fd = *it;
-                    epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+                    epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
                 }
             }
         }
@@ -793,7 +828,7 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
         memset(&current_ev, 0, sizeof(current_ev));
         current_ev.events = EPOLLOUT | EPOLLIN;
         current_ev.data.fd = targetFd;
-        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, targetFd, &current_ev);
+        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, targetFd, &current_ev);
     }
 }
 
@@ -912,7 +947,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
                         memset(&current_ev, 0, sizeof(current_ev));
                         current_ev.events = EPOLLOUT | EPOLLIN;
                         current_ev.data.fd = *it;
-                        epoll_ctl(server.get_epfd(), EPOLL_CTL_MOD, *it, &current_ev);
+                        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
                     }
                 }
                 
