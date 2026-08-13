@@ -67,7 +67,7 @@ public:
     // other
     void        disconnectClient(int fd);
     void        disconnectClient(std::map<int, Client>::iterator);
-    ssize_t     send_message(int fd, std::string& buf);
+    ssize_t     sendMessage(int fd, std::string& buf);
     void        pingPong();
     void        disconnectServer();
 };
