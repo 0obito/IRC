@@ -1,6 +1,10 @@
 #ifndef IRCSERV_HPP
 #define IRCSERV_HPP
 
+/*
+ * containes libraries and everything needed by main(), aka ircServ.cpp
+ */
+
 #include "../includes/Channel.hpp"
 #include "../includes/Client.hpp"
 #include "../includes/Dispatcher.hpp"
