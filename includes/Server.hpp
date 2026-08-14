@@ -18,7 +18,6 @@
 #include <iostream>
 #include <string>
 
-
 /*
  * Server
  * The project's backbone.

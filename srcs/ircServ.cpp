@@ -1,6 +1,6 @@
 #include "../includes/ircServ.hpp"
 
-int signalStatus = 0;
+
 
 void    signalHandler(int signal) {
     signalStatus = signal;

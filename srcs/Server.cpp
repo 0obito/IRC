@@ -6,6 +6,7 @@
 #include "../includes/Dispatcher.hpp"
 #include "../includes/Utils.hpp"
 
+int signalStatus = 0;
 
 // canonical form
 Server::Server(int port_in, const std::string& pwd) 
@@ -187,6 +188,7 @@ void            Server::multiplexer() {
                 close(currentFd);
                 continue;
             }
+            std::cout << "NICK: " << iter->second.getNick() << std::endl;
 
             // 3. THE REAPER (Errors & Hang-ups)
             if (eventBuffer[i].events & (EPOLLERR | EPOLLHUP)) {
