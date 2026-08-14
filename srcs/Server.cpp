@@ -272,14 +272,14 @@ void            Server::multiplexer() {
                     current_ev.data.fd = currentFd;
                     epoll_ctl(epfd, EPOLL_CTL_MOD, currentFd, &current_ev);
 
-                    // If the client was flagged for death (e.g., /QUIT), kill them AFTER sending the final message
+                    // If the client was flagged for death before (e.g: timed out on PING)
                     if (iter->second.isDead()) {
                         disconnectClient(currentFd);
                     }
                 }
             }
         }
-        pingPong();
+        pingTracker();
     }
 }
 
@@ -319,13 +319,17 @@ ssize_t         Server::sendMessage(int fd, std::string &buf) {
     return (send_size);
 }
 
-void            Server::pingPong() {
-    static time_t lastSweep = time(NULL);
+void            Server::pingTracker() {
+    // last action set for the first time
+    static time_t lastAction = time(NULL);
+    // update `now` with the current time
     time_t now = time(NULL);
-    if (now - lastSweep >= 60) {
-        lastSweep = now;
+    if (now - lastAction >= INACTIVE_WAITTIME) {
+        lastAction = now;
         for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); ++it) {
+            // grab the client object
             Client& cl = it->second;
+            
             int idleTime = now - cl.getLastActivity();
             if (idleTime > 60) {
                 int fd = cl.getFd();

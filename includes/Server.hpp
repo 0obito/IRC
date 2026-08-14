@@ -2,6 +2,8 @@
 #define SERVER_HPP
 
 #define MAX_EVENTS 100
+#define INACTIVE_WAITTIME 60
+#define PING_WAITTIME 15
 
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -67,7 +69,7 @@ public:
     void        disconnectClient(int fd);
     void        disconnectClient(std::map<int, Client>::iterator);
     ssize_t     sendMessage(int fd, std::string& buf);
-    void        pingPong();
+    void        pingTracker();
     void        disconnectServer();
 };
 
