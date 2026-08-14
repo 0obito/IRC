@@ -254,9 +254,15 @@ void            Server::multiplexer() {
             // We re-find the iterator in case the Reader deleted it to prevent segfaults
             iter = clientMap.find(currentFd);
             if (iter != clientMap.end() && (eventBuffer[i].events & EPOLLOUT)) {
-                sendMessage(currentFd, iter->second.getSendQueue());
+                ssize_t sentChunk = sendMessage(currentFd, iter->second.getSendQueue());
 
-                // If we successfully drained their outbox, put them back to sleep (EPOLLIN only)
+                // an error occured when trying to send buffer content
+                if (sentChunk == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                    disconnectClient(iter);
+                    continue;
+                }
+
+                // we successfully sent the whole buffer
                 if (iter->second.getSendQueue().empty()) {
                     struct epoll_event current_ev;
                     memset(&current_ev, 0, sizeof(current_ev));
@@ -290,20 +296,24 @@ void            Server::disconnectClient(std::map<int, Client>::iterator it)   /
     epoll_ctl(epfd, EPOLL_CTL_DEL, it->first, NULL);
     close(it->first);
     clientMap.erase(it);
+    // ISSUE. loop through joined channels and disconnect, or broadcast a msg or smthg
 }
 
-ssize_t         Server::sendMessage(int fd, std::string &buf){
+ssize_t         Server::sendMessage(int fd, std::string &buf) {
     ssize_t send_size;
 
+    // empty buffer, nothing to send
     if (buf.empty())
         return(0);
+
+    // attempt to send buffer content
     send_size = send(fd, buf.c_str(), buf.size(), MSG_DONTWAIT);
-    if (send_size > 0){
+
+    // buffer content or some of it was sent
+    if (send_size > 0) {
         buf.erase(0, send_size);
     }
-    else if (send_size == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        Server::disconnectClient(fd);
-    }
+
     return (send_size);
 }
 
