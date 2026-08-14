@@ -66,9 +66,11 @@ void IrcBot::run() {
 }
 
 void IrcBot::handleMessage(std::string message) {
-    // Handle PING 
     Command command ;
     Command cmd;
+    commandDispatcher dispatcher("bot");
+
+    // Handle PING 
     if (message.compare(0, 5, "PING ") == 0) {
         std::string pong = "PONG " + message.substr(5) + "\r\n";
         send(socket_fd, pong.c_str(), pong.length(), 0);
@@ -76,23 +78,12 @@ void IrcBot::handleMessage(std::string message) {
     }
     else{
         command = Parser::parse(message);
-        if (command.command == "PRIVMSG"){
+        if(size_t pos = command.prefix.find("!") != std::string::npos){
+            std::string target = command.prefix.substr(0, pos);
             cmd = Parser::parse(command.params[1]);
-            //print command message
-            std::cout << "command: " << std::endl;
-            std::cout << "prefix: " << cmd.prefix << std::endl;
-            std::cout << "command: " << cmd.command << std::endl;
-            std::cout << "size of params: " << cmd.params.size() << std::endl;
-            for(size_t i = 0; i < cmd.params.size(); i++)
-                std::cout << "param: " << cmd.params[i] << std::endl;
+            std::cout << "target: " << target << std::endl;
+            dispatcher.botCommand(socket_fd, target, cmd);
         }
-        //print command message
-        // std::cout << "command: " << std::endl;
-        // std::cout << "prefix: " << command.prefix << std::endl;
-        // std::cout << "command: " << command.command << std::endl;
-        // std::cout << "size of params: " << command.params.size() << std::endl;
-        // for(size_t i = 0;i < command.params.size(); i++)
-        //     std::cout << "param: " << command.params[i] << std::endl;
     }
 }
 

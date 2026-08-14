@@ -21,6 +21,11 @@ commandDispatcher::commandDispatcher() {
     _handlers["MODE"] = &handleMODE;
 }
 
+commandDispatcher::commandDispatcher(std::string Bot) {
+    (void)Bot;
+    _BotHandlers["JOKE"] = &handleJOKE;
+    _BotHandlers["ANONYM"] = &handleANONYM;
+}
 commandDispatcher::~commandDispatcher() {
 }
 
@@ -39,5 +44,16 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
 
         reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
         client.getSendQueue() += reply;
+    }
+}
+
+void commandDispatcher::botCommand(int socketfd, std::string target, Command cmd) {
+    if (_BotHandlers.find(cmd.command) != _BotHandlers.end()) {
+        commandBotHandler func = _BotHandlers[cmd.command];
+        func(socketfd, target, cmd);
+    }
+    else {
+        std::string reply = "PRIVMSG " + target + "Unknown command" + cmd.command + "\r\n";
+        send(socketfd, reply.c_str(), reply.length(), 0);
     }
 }

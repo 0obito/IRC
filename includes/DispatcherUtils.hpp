@@ -28,4 +28,8 @@ void handleTOPIC(Server &server, Client &client, Command &parsedMsg);
 void handleINVITE(Server &server, Client &client, Command &parsedMsg);
 void handleMODE(Server& server, Client& client, Command& parsedMsg);
 
+// Bot
+void    handleJOKE(int socketfd, std::string target, Command cmd);
+void    handleANONYM(int socketfd, std::string target, Command cmd);
+
 #endif

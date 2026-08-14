@@ -989,3 +989,30 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
         client.getSendQueue() += reply;
     }
 }
+
+// bot handlers
+
+void    handleJOKE(int socketfd, std::string target, Command cmd) {
+    (void)cmd;
+    const char* jokes[] = {
+            "Why do programmers prefer dark mode? Because light attracts bugs.",
+            "How many programmers does it take to change a light bulb? None, that's a hardware problem.",
+            "I would tell you a UDP joke, but you might not get it.",
+            "There are 10 types of people in the world: those who understand binary, and those who don't."
+        };
+    int num_jokes = sizeof(jokes) / sizeof(jokes[0]);
+    int random_index = std::rand() % num_jokes;
+    std::string reply = "PRIVMSG " + target + " :" + jokes[random_index] + "\r\n";
+    send(socketfd, reply.c_str(), reply.length(), 0);
+}
+
+void    handleANONYM(int socketfd, std::string target, Command cmd) {
+    std::string reply;
+
+    if (cmd.params.size() == 2)
+        reply = "PRIVMSG " + cmd.params[0] + " :" + "ANONYM: " + cmd.params[1] + "\r\n";
+    else {
+        reply = "PRIVMSG " + target + " :ANONYM [target nick name] [message]" + "\r\n";
+    }
+    send(socketfd, reply.c_str(), reply.length(), 0);
+}
