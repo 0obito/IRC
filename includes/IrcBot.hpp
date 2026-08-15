@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <ctime>
 #include "Parser.hpp"
 #include "Dispatcher.hpp"
 
@@ -21,7 +22,7 @@ private:
 
 public:
     IrcBot(const std::string& ip, int port, const std::string& pass) 
-        : server_ip(ip), password(pass), server_port(port), socket_fd(-1) {}
+        : server_ip(ip), password(pass), server_port(port), socket_fd(-1) {std::srand(std::time(0));}
     ~IrcBot();
 
     bool    connectToServer();
