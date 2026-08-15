@@ -37,6 +37,7 @@ void welcomingSeq(Client& client, const std::string serverName) {
 void registerClient(Client& client, const std::string serverName) {
     if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
         client.setRegistered(true);
+        // client.updateActivity();
         welcomingSeq(client, serverName);
     }
     return ;

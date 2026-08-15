@@ -35,7 +35,7 @@ private:
     std::set<std::string> channels;
 
     time_t  lastActivity;
-    bool    waitingForPong;
+    bool    isPinged;
 
 public:
     Client(int fd);
@@ -80,8 +80,8 @@ public:
 
     void    updateActivity();
     time_t  getLastActivity() const;
-    bool    isWaitingForPong() const;
-    void    setWaitingForPong(bool status);
+    bool    isPingedByServer() const;
+    void    setPingedByServer(bool status);
 };
 
 #endif

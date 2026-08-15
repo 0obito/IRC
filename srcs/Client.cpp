@@ -9,7 +9,7 @@ Client::Client(int fd)
       registerOk(false),
       dead(false),
       lastActivity(time(NULL)),
-      waitingForPong(false)
+      isPinged(false)
 {}
 
 Client::~Client() {}
@@ -124,17 +124,17 @@ const std::set<std::string>& Client::getJoinedChannels() const {
 
 void Client::updateActivity() {
     lastActivity = time(NULL);
-    waitingForPong = false;
+    isPinged = false;
 }
 
 time_t Client::getLastActivity() const {
     return lastActivity;
 }
 
-bool Client::isWaitingForPong() const {
-    return waitingForPong;
+bool Client::isPingedByServer() const {
+    return isPinged;
 }
 
-void Client::setWaitingForPong(bool status) {
-    waitingForPong = status;
+void Client::setPingedByServer(bool status) {
+    isPinged = status;
 }

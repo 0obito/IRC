@@ -208,11 +208,18 @@ void            Server::multiplexer() {
                     if (errno != EAGAIN && errno != EWOULDBLOCK) {
                         disconnectClient(iter); // A real socket error occurred
                     }
-                    continue; // Nothing to read, or error handled
+                    if (iter->second.isRegistered()) {
+                        iter->second.updateActivity();
+                    }
+                    continue;
                 }
 
-                // data received well, process it
-                iter->second.updateActivity();
+                // update client's activity tracker only if they are registered
+                if (iter->second.isRegistered()) {
+                    iter->second.updateActivity();
+                }
+
+                // data received, append it to client's buffer
                 std::string &r_buf = iter->second.getRecvBuf();
                 r_buf.append(buffer, bytes);
 
@@ -242,7 +249,7 @@ void            Server::multiplexer() {
                     continue;
                 }
 
-                // If the command handlers queued up responses, awaken the Writer
+                // if the command handlers prepared responses, awaken the Writer
                 if (!iter->second.getSendQueue().empty()) {
                     struct epoll_event current_ev;
                     memset(&current_ev, 0, sizeof(current_ev));
@@ -253,7 +260,7 @@ void            Server::multiplexer() {
             }
 
             // 5. THE WRITER (EPOLLOUT)
-            // We re-find the iterator in case the Reader deleted it to prevent segfaults
+            // we re-find the iterator in case the Reader deleted it to prevent any issues
             iter = clientMap.find(currentFd);
             if (iter != clientMap.end() && (eventBuffer[i].events & EPOLLOUT)) {
                 ssize_t sentChunk = sendMessage(currentFd, iter->second.getSendQueue());
@@ -279,7 +286,7 @@ void            Server::multiplexer() {
                 }
             }
         }
-        pingTracker();
+        inactivityTracker();
     }
 }
 
@@ -319,42 +326,68 @@ ssize_t         Server::sendMessage(int fd, std::string &buf) {
     return (send_size);
 }
 
-void            Server::pingTracker() {
-    // last action set for the first time
-    static time_t lastAction = time(NULL);
+void            Server::inactivityTracker() {
+    // set lastLoopAction for the first time
+    static time_t lastLoopAction = time(NULL);
     // update `now` with the current time
     time_t now = time(NULL);
-    if (now - lastAction >= INACTIVE_WAITTIME) {
-        lastAction = now;
+    if (now - lastLoopAction >= PING_LOOP_TRIGGER_TIME) {
+        // reset lastLoopAction
+        lastLoopAction = now;
+
+        // loop over all the clients in the server, check their inactivity
         for (std::map<int, Client>::iterator it = clientMap.begin(); it != clientMap.end(); ++it) {
-            // grab the client object
             Client& cl = it->second;
-            
-            int idleTime = now - cl.getLastActivity();
-            if (idleTime > 60) {
-                int fd = cl.getFd();
-                if (!cl.isWaitingForPong()) {
-                    std::string pingMsg = "PING :keepalive\r\n";
-                    cl.getSendQueue() += pingMsg;
-                    cl.setWaitingForPong(true);
-                    struct epoll_event current_ev;
-                    memset(&current_ev, 0, sizeof(current_ev));
-                    current_ev.events = EPOLLOUT | EPOLLIN;
-                    current_ev.data.fd = fd;
-                    epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &current_ev);
+            // client already dead, just waiting to be executed by multiplexer() lol
+            if (cl.isDead()) {
+                continue ;
+            }
+            now = time(NULL);
+
+            int idleTime = now - cl.getLastActivity();  // calculate client's idle time
+            int ClientFd = cl.getFd();
+
+            if (cl.isRegistered()) {    // if client is registered, we PING them and monitor their inactivity
+                if (!cl.isPingedByServer()) {   // if client didn't get PINGed yet
+                    if (idleTime > INACTIVITY_WAITTIME) {
+                        std::string pingMsg = "PING :keepalive\r\n";
+                        cl.getSendQueue() += pingMsg;
+                        cl.setPingedByServer(true);
+                        struct epoll_event current_ev;
+                        memset(&current_ev, 0, sizeof(current_ev));
+                        current_ev.events = EPOLLOUT | EPOLLIN;
+                        current_ev.data.fd = ClientFd;
+                        epoll_ctl(epfd, EPOLL_CTL_MOD, ClientFd, &current_ev);
+                    }
                 }
-                else {
-                    std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
-                    std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
-                    std::string clHost = cl.getHostname();
-                    std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: 120 seconds\r\n";
-                    cl.getSendQueue() += quitMsg;
-                    cl.setDead(true);
-                    struct epoll_event current_ev;
-                    memset(&current_ev, 0, sizeof(current_ev));
-                    current_ev.events = EPOLLOUT;
-                    current_ev.data.fd = cl.getFd();
-                    epoll_ctl(epfd, EPOLL_CTL_MOD, cl.getFd(), &current_ev);
+                else {                  // if client did get PINGed before
+                    if (idleTime > INACTIVITY_WAITTIME + PING_WAITTIME) {
+                        std::string clNick = cl.getNick().empty() ? "*" : cl.getNick();
+                        std::string clUser = cl.getUser().empty() ? "*" : cl.getUser();
+                        std::string clHost = cl.getHostname().empty() ? "*" : cl.getHostname();
+                        std::stringstream clIdleTime;
+                        clIdleTime << idleTime;
+                        std::string quitMsg = ":" + clNick + "!" + clUser + "@" + clHost + " QUIT :Ping timeout: " + clIdleTime.str() + " seconds\r\n";
+                        cl.getSendQueue() += quitMsg;
+                        cl.setDead(true);
+                        struct epoll_event current_ev;
+                        memset(&current_ev, 0, sizeof(current_ev));
+                        current_ev.events = EPOLLOUT;
+                        current_ev.data.fd = ClientFd;
+                        epoll_ctl(epfd, EPOLL_CTL_MOD, ClientFd, &current_ev);
+                    }
+                }
+            }
+            else {                      // if client is not registered, we monitor their inactivity without sending PING
+                if (idleTime > REGISTRATION_TIMEOUT) {
+                        std::string timeoutMsg = "ERROR :Closing Link: [Registration timeout]\r\n";
+                        cl.getSendQueue() += timeoutMsg;
+                        cl.setDead(true);
+                        struct epoll_event current_ev;
+                        memset(&current_ev, 0, sizeof(current_ev));
+                        current_ev.events = EPOLLOUT;
+                        current_ev.data.fd = ClientFd;
+                        epoll_ctl(epfd, EPOLL_CTL_MOD, ClientFd, &current_ev);
                 }
             }
         }
