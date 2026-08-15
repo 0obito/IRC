@@ -53,7 +53,14 @@ void commandDispatcher::botCommand(int socketfd, std::string target, Command cmd
         func(socketfd, target, cmd);
     }
     else {
-        std::string reply = "PRIVMSG " + target + "Unknown command" + cmd.command + "\r\n";
+        std::string Validcommands = " :Bot [commands]:";
+        std::string reply = "PRIVMSG " + target + " :Unknown command " + cmd.command + "\r\n";
+        send(socketfd, reply.c_str(), reply.length(), 0);
+        reply = "PRIVMSG " + target + Validcommands + "\r\n";
+        send(socketfd, reply.c_str(), reply.length(), 0);
+        reply = "PRIVMSG " + target + " :[ANONYM] [target nickname] [message]: to send anonym messages.\r\n";
+        send(socketfd, reply.c_str(), reply.length(), 0);
+        reply = "PRIVMSG " + target + " :[JOKE]: bot send you random joks.\r\n";
         send(socketfd, reply.c_str(), reply.length(), 0);
     }
 }
