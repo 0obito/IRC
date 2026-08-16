@@ -42,7 +42,7 @@ void IrcBot::authenticate() {
 
     std::cout << "bot attempting to register..." << std::endl;
     ss << "PASS :" << password << "\r\n";
-    ss << "NICK bot\r\n";
+    ss << "NICK Bot\r\n";
     ss << "USER b 0 * B\r\n";
 
     std::string auth_msg = ss.str();

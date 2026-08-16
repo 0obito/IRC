@@ -39,11 +39,9 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
         cmd.command = parsedMsg.command.erase(0,1);
         cmd.prefix = "";
         cmd.params.push_back("Bot");
-        std::cout << "hiiiiiiiii" << std::endl;
-        for(size_t i = 0; i < parsedMsg.params.size(); i++) {
-            cmd.params.push_back(parsedMsg.params[i]);
-            std::cout << "params: " << parsedMsg.params[i] << std::endl;
-        }
+        cmd.params.push_back(toUpper(cmd.command));
+        for(size_t i = 0; i < parsedMsg.params.size(); i++)
+            cmd.params[1] += " " + parsedMsg.params[i];
         handlePRIVMSG(server, client, cmd);
     }
     else {
