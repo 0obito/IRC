@@ -232,6 +232,7 @@ void            Server::multiplexer() {
                 bool parsingFailed = false;
                 while ((position = r_buf.find("\r\n")) != std::string::npos) {
                     std::string line = r_buf.substr(0, position);
+                    // std::cout << "message: " << line << std::endl;
                     r_buf.erase(0, position + 2);
 
                     if (line.size() > 510) {

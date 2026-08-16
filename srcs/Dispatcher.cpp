@@ -34,6 +34,18 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
         commandHandler func = _handlers[parsedMsg.command];
         func(server, client, parsedMsg);
     }
+    else if (!parsedMsg.command.empty() && parsedMsg.command[0] == '!') {
+        Command cmd;
+        cmd.command = parsedMsg.command.erase(0,1);
+        cmd.prefix = "";
+        cmd.params.push_back("Bot");
+        std::cout << "hiiiiiiiii" << std::endl;
+        for(size_t i = 0; i < parsedMsg.params.size(); i++) {
+            cmd.params.push_back(parsedMsg.params[i]);
+            std::cout << "params: " << parsedMsg.params[i] << std::endl;
+        }
+        handlePRIVMSG(server, client, cmd);
+    }
     else {
         if (!client.isRegistered()) {
             return ;
