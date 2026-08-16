@@ -11,6 +11,8 @@
 #include <ctime>
 #include "Parser.hpp"
 #include "Dispatcher.hpp"
+#include "exception"
+#include "stdexcept"
 
 class IrcBot {
 private:
@@ -19,16 +21,14 @@ private:
     int server_port;
     int socket_fd;
 
-
 public:
-    IrcBot(const std::string& ip, int port, const std::string& pass) 
-        : server_ip(ip), password(pass), server_port(port), socket_fd(-1) {std::srand(std::time(0));}
+    IrcBot(const std::string& ip, int port, const std::string& pass);
     ~IrcBot();
 
-    bool    connectToServer();
+    void    connectToServer();
     void    authenticate();
     void    run();
-    void    handleMessage(std::string message);
+    void    handleMessage(std::string& message);
 };
 
 #endif

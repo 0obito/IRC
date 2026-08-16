@@ -1004,7 +1004,7 @@ void    handleJOKE(int socketfd, std::string target, Command cmd) {
     int num_jokes = sizeof(jokes) / sizeof(jokes[0]);
     int random_index = std::rand() % num_jokes;
     std::string reply = "PRIVMSG " + target + " :" + jokes[random_index] + "\r\n";
-    send(socketfd, reply.c_str(), reply.length(), 0);
+    send(socketfd, reply.c_str(), reply.length(), MSG_DONTWAIT);
 }
 
 void    handleANONYM(int socketfd, std::string target, Command cmd) {
@@ -1015,5 +1015,5 @@ void    handleANONYM(int socketfd, std::string target, Command cmd) {
     else {
         reply = "PRIVMSG " + target + " :ANONYM [target nick name] [message]" + "\r\n";
     }
-    send(socketfd, reply.c_str(), reply.length(), 0);
+    send(socketfd, reply.c_str(), reply.length(), MSG_DONTWAIT);
 }
