@@ -6,7 +6,7 @@
 #include "../includes/Utils.hpp"
 #include "../includes/Channel.hpp"
 
-// DONE
+//////////////////////////////////////////////////////////////////////////////// DONE
 void welcomingSeq(Client& client, const std::string serverName) {
     std::string nick = client.getNick();
     std::string user = client.getUser();
@@ -39,7 +39,7 @@ void welcomingSeq(Client& client, const std::string serverName) {
     return ;
 }
 
-// DONE
+//////////////////////////////////////////////////////////////////////////////// DONE
 void registerClient(Client& client, const std::string serverName) {
     if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
         client.setRegistered(true);
@@ -48,7 +48,7 @@ void registerClient(Client& client, const std::string serverName) {
     return ;
 }
 
-// DONE
+//////////////////////////////////////////////////////////////////////////////// DONE
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
@@ -76,7 +76,7 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     }
 }
 
-// DONE
+//////////////////////////////////////////////////////////////////////////////// DONE
 bool nickIsValid(const std::string &nickName) {
     if (nickName.empty())
         return false;
@@ -89,7 +89,7 @@ bool nickIsValid(const std::string &nickName) {
     return true;
 }
 
-// NOT YET!
+//////////////////////////////////////////////////////////////////////////////// DONE
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
@@ -134,10 +134,10 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
         // build NICK message
         std::string nickMsg = ":" + senderNick + "!" + client.getUser() + "@" + client.getHostname() + " NICK :" + nickName + "\r\n";
 
-        // Send to the client first
+        // send to the sender first
         client.getSendQueue() += nickMsg;
 
-        // Track people (fds) notified
+        // Track clients notified
         std::set<int> notifiedFds;
         notifiedFds.insert(client.getFd());
 
@@ -146,23 +146,13 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
         for (std::set<std::string>::const_iterator chIt = myChannels.begin(); chIt != myChannels.end(); ++chIt) {
             Channel* channel = server.getChannel(*chIt);
             if (channel) {
-                // Loop through all members of this channel
+                // loop through ga3 members of channel
                 const std::set<int>& members = channel->getMembers();
                 for (std::set<int>::const_iterator memIt = members.begin(); memIt != members.end(); ++memIt) {
-                    // If we haven't notified them yet...
+                    // notify each client once
                     if (notifiedFds.find(*memIt) == notifiedFds.end()) {
-                        std::map<int, Client>::iterator targetClient = server.getMap().find(*memIt);
-                        if (targetClient != server.getMap().end()) {
-                            targetClient->second.getSendQueue() += nickMsg;
-
-                            struct epoll_event current_ev;
-                            memset(&current_ev, 0, sizeof(current_ev));
-                            current_ev.events = EPOLLOUT | EPOLLIN;
-                            current_ev.data.fd = *memIt;
-                            epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *memIt, &current_ev);
-
-                            notifiedFds.insert(*memIt);
-                        }
+                        server.queueResponse(*memIt, nickMsg);
+                        notifiedFds.insert(*memIt);
                     }
                 }
             }
@@ -174,22 +164,27 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     return ;
 }
 
+//////////////////////////////////////////////////////////////////////////////// DONE
 void handleUSER(Server& server, Client& client, Command& parsedMsg) {
-    std::string senderNick = client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
+    // are u already registered?
     if (client.isRegistered()) {
         reply = makeReply(serverName, 462, senderNick, "Unauthorized command (already registered)");
         client.getSendQueue() += reply;
         return ;
     }
 
+    // where's your password dude
     if (!client.getPassOk()) {
         reply = makeReply(serverName, 464, senderNick, "Password incorrect");
         client.getSendQueue() += reply;
         return ;
     }
+
+    // give me correct params my dude
     if (parsedMsg.params.empty() || parsedMsg.params.size() < 4 || parsedMsg.params[3].empty()) {
         reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
