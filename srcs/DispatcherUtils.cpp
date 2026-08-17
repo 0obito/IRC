@@ -20,7 +20,7 @@ void welcomingSeq(Client& client, const std::string serverName) {
     ss << " :Welcome To ircDyalna Internet Relay Chat Network " << nick << "!" << user << "@" << host <<"\r\n";
 
     ss << ":" << serverName << " 002 " << nick;
-    ss << " :Your host is " << serverName << ", running version 1.0\r\n";
+    ss << " :Your host is " << serverName << ", running version" << version << "\r\n";
 
     ss << ":" << serverName << " 003 " << nick;
     ss << " :This server was created not so long ago\r\n";
