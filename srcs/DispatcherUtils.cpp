@@ -852,12 +852,9 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
     
     std::string target = parsedMsg.params[0];
     
-    // Check if target is a channel (starts with # or &)
     if (!target.empty() && (target[0] == '#' || target[0] == '&')) {
-        // CHANNEL MODE
         std::string lowerChannelName = toLower(target);
         
-        // Check if channel exists
         Channel* channel = server.getChannel(lowerChannelName);
         if (!channel) {
             reply = makeReply(serverName, 403, targetNick, "No such channel", target);
@@ -865,23 +862,19 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
             return;
         }
         
-        // Check if client is in the channel
         if (!channel->isMember(client.getFd())) {
             reply = makeReply(serverName, 442, targetNick, "You're not on that channel", target);
             client.getSendQueue() += reply;
             return;
         }
         
-        // Check if client is operator
         if (!channel->isOperator(client.getFd())) {
             reply = makeReply(serverName, 482, targetNick, "You're not channel operator", target);
             client.getSendQueue() += reply;
             return;
         }
         
-        // If no mode parameters, show current modes
         if (parsedMsg.params.size() < 2) {
-            // Send current modes
             std::string modeString = "+";
             if (channel->isInviteOnly()) modeString += "i";
             if (channel->isTopicRestricted()) modeString += "t";
@@ -895,27 +888,33 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
         
         std::string modeChanges = parsedMsg.params[1];
         bool adding = true;
+        bool modeChanged = false;
+        std::string appliedChanges = "";  // Track what was actually applied
+        std::string appliedParams = "";    // Track parameters used
+        size_t paramIndex = 2;
         
-        // Process each mode character
         for (size_t i = 0; i < modeChanges.length(); i++) {
             char c = modeChanges[i];
             
             if (c == '+') {
                 adding = true;
+                appliedChanges += "+";
             } else if (c == '-') {
                 adding = false;
+                appliedChanges += "-";
             } else if (c == 'i') {
-                // i mode
                 channel->setInviteOnly(adding);
+                appliedChanges += "i";
+                modeChanged = true;
+                
             } else if (c == 'o') {
-                // o mode
-                if (parsedMsg.params.size() < 3) {
-                    reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +o", parsedMsg.command);
+                if (paramIndex >= parsedMsg.params.size()) {
+                    reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode o", parsedMsg.command);
                     client.getSendQueue() += reply;
                     continue;
                 }
                 
-                std::string nickParam = parsedMsg.params[2];
+                std::string nickParam = parsedMsg.params[paramIndex++];
                 int targetFd = server.nicknameOwner(nickParam);
                 
                 if (targetFd == -1) {
@@ -935,57 +934,72 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
                 } else {
                     channel->removeOperator(targetFd);
                 }
-                
-                // Broadcast o mode change to channel
-                std::string modeMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost MODE " + channel->getName() + " " + (adding ? "+" : "-") + "o " + nickParam + "\r\n";
-                const std::set<int>& members = channel->getMembers();
-                for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
-                    std::map<int, Client>::iterator iter = server.getMap().find(*it);
-                    if (iter != server.getMap().end()) {
-                        iter->second.getSendQueue() += modeMsg;
-                        
-                        struct epoll_event current_ev;
-                        memset(&current_ev, 0, sizeof(current_ev));
-                        current_ev.events = EPOLLOUT | EPOLLIN;
-                        current_ev.data.fd = *it;
-                        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
-                    }
-                }
+                appliedChanges += "o";
+                appliedParams += " " + nickParam;
+                modeChanged = true;
                 
             } else if (c == 'k') {
-                // k mode
                 if (adding) {
-                    if (parsedMsg.params.size() < 3) {
+                    if (paramIndex >= parsedMsg.params.size()) {
                         reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +k", parsedMsg.command);
                         client.getSendQueue() += reply;
                         continue;
                     }
-                    channel->setKey(parsedMsg.params[2]);
+                    channel->setKey(parsedMsg.params[paramIndex++]);
+                    appliedParams += " " + parsedMsg.params[paramIndex - 1];
                 } else {
                     channel->setKey("");
                 }
+                appliedChanges += "k";
+                modeChanged = true;
+                
             } else if (c == 'l') {
-                // l mode
                 if (adding) {
-                    if (parsedMsg.params.size() < 3) {
+                    if (paramIndex >= parsedMsg.params.size()) {
                         reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +l", parsedMsg.command);
                         client.getSendQueue() += reply;
                         continue;
                     }
-                    int limit = atoi(parsedMsg.params[2].c_str());
+                    int limit = atoi(parsedMsg.params[paramIndex++].c_str());
                     if (limit > 0) {
                         channel->setUserLimit(limit);
+                        std::stringstream ss;
+                        ss << limit;
+                        appliedParams += " " + ss.str();
                     }
                 } else {
                     channel->setUserLimit(0);
                 }
+                appliedChanges += "l";
+                modeChanged = true;
+                
             } else if (c == 't') {
-                // t mode
                 channel->setTopicRestricted(adding);
+                appliedChanges += "t";
+                modeChanged = true;
             }
         }
+        
+        // BROADCAST TO ALL CHANNEL MEMBERS
+        if (modeChanged && !appliedChanges.empty()) {
+            std::string modeMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost MODE " + channel->getName() + " " + appliedChanges + appliedParams + "\r\n";
+            
+            const std::set<int>& members = channel->getMembers();
+            for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
+                std::map<int, Client>::iterator iter = server.getMap().find(*it);
+                if (iter != server.getMap().end()) {
+                    iter->second.getSendQueue() += modeMsg;
+                    
+                    struct epoll_event current_ev;
+                    memset(&current_ev, 0, sizeof(current_ev));
+                    current_ev.events = EPOLLOUT | EPOLLIN;
+                    current_ev.data.fd = *it;
+                    epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
+                }
+            }
+        }
+        
     } else {
-        // we're not required to handle USER MODE
         reply = makeReply(serverName, 502, targetNick, "Cannot change user mode");
         client.getSendQueue() += reply;
     }
