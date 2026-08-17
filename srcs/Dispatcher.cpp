@@ -40,8 +40,11 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
         cmd.prefix = "";
         cmd.params.push_back("Bot");
         cmd.params.push_back(toUpper(cmd.command));
-        for(size_t i = 0; i < parsedMsg.params.size(); i++)
+        for(size_t i = 0; i < parsedMsg.params.size(); i++) {
+            if(i == parsedMsg.params.size() - 1)
+                cmd.params[1] += " :";
             cmd.params[1] += " " + parsedMsg.params[i];
+        }
         handlePRIVMSG(server, client, cmd);
     }
     else {
