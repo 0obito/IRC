@@ -51,11 +51,11 @@ void commandDispatcher::routeCommand(Server& server, Client& client, Command& pa
         if (!client.isRegistered()) {
             return ;
         }
-        std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+        std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
         std::string serverName = server.getServerName();
         std::string reply;
 
-        reply = makeReply(serverName, 421, targetNick, "Unknown command", parsedMsg.command);
+        reply = makeReply(serverName, 421, senderNick, "Unknown command", parsedMsg.command);
         client.getSendQueue() += reply;
     }
 }

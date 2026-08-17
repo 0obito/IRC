@@ -50,17 +50,17 @@ void registerClient(Client& client, const std::string serverName) {
 
 // DONE
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
     if (client.isRegistered()) {
-        reply = makeReply(serverName, 462, targetNick, "Unauthorized command (already registered)");
+        reply = makeReply(serverName, 462, senderNick, "Unauthorized command (already registered)");
         client.getSendQueue() += reply;
         return ;
     }
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return ;
     }
@@ -70,7 +70,7 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     }
     else {
         client.setPassOk(false);
-        reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+        reply = makeReply(serverName, 464, senderNick, "Password incorrect");
         client.getSendQueue() += reply;
         return ;
     }
@@ -91,20 +91,20 @@ bool nickIsValid(const std::string &nickName) {
 
 // NOT YET!
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
     // password first my friend
     if (!client.getPassOk()) {
-        reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+        reply = makeReply(serverName, 464, senderNick, "Password incorrect");
         client.getSendQueue() += reply;
         return ;
     }
 
     // no nickname was passed
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 431, targetNick, "No nickname given");
+        reply = makeReply(serverName, 431, senderNick, "No nickname given");
         client.getSendQueue() += reply;
         return ;
     }
@@ -113,7 +113,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
 
     // nickname is invalid
     if (!nickIsValid(nickName)) {
-        reply = makeReply(serverName, 432, targetNick, "Erroneous nickname", nickName);
+        reply = makeReply(serverName, 432, senderNick, "Erroneous nickname", nickName);
         client.getSendQueue() += reply;
         return ;
     }
@@ -122,7 +122,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
 
     // nickname is used by someone else
     if (nickOwner != -1 && nickOwner != client.getFd()) {
-        reply = makeReply(serverName, 433, targetNick, "Nickname is already in use", nickName);
+        reply = makeReply(serverName, 433, senderNick, "Nickname is already in use", nickName);
         client.getSendQueue() += reply;
         return ;
     }
@@ -132,7 +132,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
 
     if (client.isRegistered()) {
         // build NICK message
-        std::string nickMsg = ":" + targetNick + "!" + client.getUser() + "@" + client.getHostname() + " NICK :" + nickName + "\r\n";
+        std::string nickMsg = ":" + senderNick + "!" + client.getUser() + "@" + client.getHostname() + " NICK :" + nickName + "\r\n";
 
         // Send to the client first
         client.getSendQueue() += nickMsg;
@@ -175,23 +175,23 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleUSER(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick();
+    std::string senderNick = client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
     if (client.isRegistered()) {
-        reply = makeReply(serverName, 462, targetNick, "Unauthorized command (already registered)");
+        reply = makeReply(serverName, 462, senderNick, "Unauthorized command (already registered)");
         client.getSendQueue() += reply;
         return ;
     }
 
     if (!client.getPassOk()) {
-        reply = makeReply(serverName, 464, targetNick, "Password incorrect");
+        reply = makeReply(serverName, 464, senderNick, "Password incorrect");
         client.getSendQueue() += reply;
         return ;
     }
     if (parsedMsg.params.empty() || parsedMsg.params.size() < 4 || parsedMsg.params[3].empty()) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return ;
     }
@@ -290,14 +290,11 @@ void handlePONG(Server& server, Client& client, Command& parsedMsg) {
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 409, senderNick, "No origin specified");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NOORIGIN (409)" << std::endl;
         return ;
     }
     if (parsedMsg.params.size() > 2) {
-        //  :irc.example.net 461 a pong :Syntax error
         reply = makeReply(serverName, 461, senderNick, "Syntax error", parsedMsg.command);
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
 }
@@ -509,7 +506,7 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         // Send PART to all members in the channel (including the departing user)
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
-            queueResponse(*it, partMsg);
+            server.queueResponse(*it, partMsg);
         }
 
         // Remove client from channel
@@ -526,20 +523,20 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
 
 // Syntax: KICK #channel client [reason]
 void handleKICK(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
     
     // registered?
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
     
     // enough parameters?
     if (parsedMsg.params.size() < 2) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
@@ -551,7 +548,7 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
     
     // channel name s7i7?
     if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
-        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -559,21 +556,21 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
     // channel exists?
     Channel* channel = server.getChannel(lowerChannelName);
     if (!channel) {
-        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
     
     // client is in the channel?
     if (!channel->isMember(client.getFd())) {
-        reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+        reply = makeReply(serverName, 442, senderNick, "You're not on that channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
     
     // client is a channel operator?
     if (!channel->isOperator(client.getFd())) {
-        reply = makeReply(serverName, 482, targetNick, "You're not channel operator", channelName);
+        reply = makeReply(serverName, 482, senderNick, "You're not channel operator", channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -581,21 +578,21 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
     // target client nickname kayn?
     int targetFd = server.nicknameOwner(targetToKick);
     if (targetFd == -1) {
-        reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToKick);
+        reply = makeReply(serverName, 401, senderNick, "No such nick/channel", targetToKick);
         client.getSendQueue() += reply;
         return;
     }
     
     // target is in the channel?
     if (!channel->isMember(targetFd)) {
-        reply = makeReply(serverName, 441, targetNick, "They aren't on that channel", targetToKick + " " + channelName);
+        reply = makeReply(serverName, 441, senderNick, "They aren't on that channel", targetToKick + " " + channelName);
         client.getSendQueue() += reply;
         return;
     }
     
     // kick yourself? la asa7bi!
     if (targetFd == client.getFd()) {
-        reply = makeReply(serverName, 482, targetNick, "You can't kick yourself", channelName);
+        reply = makeReply(serverName, 482, senderNick, "You can't kick yourself", channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -635,20 +632,20 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
     
     // registered?
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
 
     // enough parameters?
     if (parsedMsg.params.size() < 1) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
@@ -658,7 +655,7 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
 
     // channel name s7i7?
     if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
-        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -666,14 +663,14 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
     // channel exists?
     Channel* channel = server.getChannel(lowerChannelName);
     if (!channel) {
-        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
 
     // client is in the channel?
     if (!channel->isMember(client.getFd())) {
-        reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+        reply = makeReply(serverName, 442, senderNick, "You're not on that channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -682,14 +679,14 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
     if (parsedMsg.params.size() < 2) {
         if (channel->getTopic().empty()) {
             // numeric reply 331 RPL_NOTOPIC: no topic is set
-            reply = makeReply(serverName, 331, targetNick, "No topic is set", channelName);
+            reply = makeReply(serverName, 331, senderNick, "No topic is set", channelName);
         }
         else {
             // numeric reply 332 RPL_TOPIC: show the set topic
-            reply = makeReply(serverName, 332, targetNick, channel->getTopic(), channelName);
+            reply = makeReply(serverName, 332, senderNick, channel->getTopic(), channelName);
             client.getSendQueue() += reply;
             // numeric reply 333 RPL_TOPICWHOTIME: show who set topic, and when they did
-            reply = makeReply(serverName, 333, targetNick, channel->getTopicUpdateTime(), channelName + " " + channel->getTopicUpdateUser()); // it's in the following format: :silver.libera.chat 333 hwa #linux nkukard 1722815284
+            reply = makeReply(serverName, 333, senderNick, channel->getTopicUpdateTime(), channelName + " " + channel->getTopicUpdateUser()); // it's in the following format: :silver.libera.chat 333 hwa #linux nkukard 1722815284
         }
         client.getSendQueue() += reply;
         return;
@@ -702,7 +699,7 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
         // if channel is topic restricted, and client is no operator, can't do shit
         if (channel->isTopicRestricted() && !channel->isOperator(client.getFd())) {
             // numeric reply 482 ERR_CHANOPRIVSNEEDED: need operator privilege
-            reply = makeReply(serverName, 482, targetNick, "You're not a channel operator", channelName);
+            reply = makeReply(serverName, 482, senderNick, "You're not a channel operator", channelName);
             client.getSendQueue() += reply;
             return ;
         }
@@ -744,18 +741,18 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
 
 //Syntax: INVITE nickname #channel
 void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
     
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
     
     if (parsedMsg.params.size() < 2) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
@@ -765,26 +762,26 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
     std::string lowerChannelName = toLower(channelName);
     
     if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
-        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
     
     Channel* channel = server.getChannel(lowerChannelName);
     if (!channel) {
-        reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+        reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
     
     if (channel->isInviteOnly() && !channel->isMember(client.getFd())) {
-        reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+        reply = makeReply(serverName, 442, senderNick, "You're not on that channel", channelName);
         client.getSendQueue() += reply;
         return;
     }
     
     if (channel->isInviteOnly() && !channel->isOperator(client.getFd())) {
-        reply = makeReply(serverName, 482, targetNick, "You're not channel operator", channelName);
+        reply = makeReply(serverName, 482, senderNick, "You're not channel operator", channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -792,14 +789,14 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
     // the target client to invite
     int targetFd = server.nicknameOwner(targetToInvite);
     if (targetFd == -1) {
-        reply = makeReply(serverName, 401, targetNick, "No such nick/channel", targetToInvite);
+        reply = makeReply(serverName, 401, senderNick, "No such nick/channel", targetToInvite);
         client.getSendQueue() += reply;
         return;
     }
     
     // is he already in the channel?
     if (channel->isMember(targetFd)) {
-        reply = makeReply(serverName, 443, targetNick, "is already on channel", targetToInvite + " " + channelName);
+        reply = makeReply(serverName, 443, senderNick, "is already on channel", targetToInvite + " " + channelName);
         client.getSendQueue() += reply;
         return;
     }
@@ -808,7 +805,7 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
     channel->invite(targetFd);
     
     // send confirmation to inviter
-    reply = makeReply(serverName, 341, targetNick, "Inviting " + targetToInvite + " to " + channelName);
+    reply = makeReply(serverName, 341, senderNick, "Inviting " + targetToInvite + " to " + channelName);
     client.getSendQueue() += reply;
     
     // send INVITE notification to target
@@ -826,42 +823,42 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleMODE(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
     
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
     
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
-    
+
     std::string target = parsedMsg.params[0];
-    
+
     if (!target.empty() && (target[0] == '#' || target[0] == '&')) {
         std::string lowerChannelName = toLower(target);
         
         Channel* channel = server.getChannel(lowerChannelName);
         if (!channel) {
-            reply = makeReply(serverName, 403, targetNick, "No such channel", target);
+            reply = makeReply(serverName, 403, senderNick, "No such channel", target);
             client.getSendQueue() += reply;
             return;
         }
-        
+
         if (!channel->isMember(client.getFd())) {
-            reply = makeReply(serverName, 442, targetNick, "You're not on that channel", target);
+            reply = makeReply(serverName, 442, senderNick, "You're not on that channel", target);
             client.getSendQueue() += reply;
             return;
         }
         
         if (!channel->isOperator(client.getFd())) {
-            reply = makeReply(serverName, 482, targetNick, "You're not channel operator", target);
+            reply = makeReply(serverName, 482, senderNick, "You're not channel operator", target);
             client.getSendQueue() += reply;
             return;
         }
@@ -873,7 +870,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
             if (!channel->getKey().empty()) modeString += "k";
             if (channel->isFull()) modeString += "l";
             
-            reply = makeReply(serverName, 324, targetNick, channel->getName() + " " + modeString);
+            reply = makeReply(serverName, 324, senderNick, channel->getName() + " " + modeString);
             client.getSendQueue() += reply;
             return;
         }
@@ -901,7 +898,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
                 
             } else if (c == 'o') {
                 if (paramIndex >= parsedMsg.params.size()) {
-                    reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode o", parsedMsg.command);
+                    reply = makeReply(serverName, 461, senderNick, "Not enough parameters for mode o", parsedMsg.command);
                     client.getSendQueue() += reply;
                     continue;
                 }
@@ -910,13 +907,13 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
                 int targetFd = server.nicknameOwner(nickParam);
                 
                 if (targetFd == -1) {
-                    reply = makeReply(serverName, 401, targetNick, "No such nick", nickParam);
+                    reply = makeReply(serverName, 401, senderNick, "No such nick", nickParam);
                     client.getSendQueue() += reply;
                     continue;
                 }
                 
                 if (!channel->isMember(targetFd)) {
-                    reply = makeReply(serverName, 441, targetNick, "They aren't on that channel", nickParam + " " + channel->getName());
+                    reply = makeReply(serverName, 441, senderNick, "They aren't on that channel", nickParam + " " + channel->getName());
                     client.getSendQueue() += reply;
                     continue;
                 }
@@ -933,7 +930,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
             } else if (c == 'k') {
                 if (adding) {
                     if (paramIndex >= parsedMsg.params.size()) {
-                        reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +k", parsedMsg.command);
+                        reply = makeReply(serverName, 461, senderNick, "Not enough parameters for mode +k", parsedMsg.command);
                         client.getSendQueue() += reply;
                         continue;
                     }
@@ -948,7 +945,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
             } else if (c == 'l') {
                 if (adding) {
                     if (paramIndex >= parsedMsg.params.size()) {
-                        reply = makeReply(serverName, 461, targetNick, "Not enough parameters for mode +l", parsedMsg.command);
+                        reply = makeReply(serverName, 461, senderNick, "Not enough parameters for mode +l", parsedMsg.command);
                         client.getSendQueue() += reply;
                         continue;
                     }
@@ -992,7 +989,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
         }
         
     } else {
-        reply = makeReply(serverName, 502, targetNick, "Cannot change user mode");
+        reply = makeReply(serverName, 502, senderNick, "Cannot change user mode");
         client.getSendQueue() += reply;
     }
 }
