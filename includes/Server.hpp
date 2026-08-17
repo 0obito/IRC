@@ -73,6 +73,7 @@ public:
     ssize_t     sendMessage(int fd, std::string& buf);
     void        inactivityTracker();
     void        disconnectServer();
+    void        queueResponse(int targetFd, const std::string& message);
 };
 
 extern int  signalStatus;

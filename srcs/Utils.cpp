@@ -83,7 +83,7 @@ void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::st
     std::cout<<"we can't be here, we shouldn't be here!\n";
     std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
     if (iter != server.getMap().end()) {
-        reply = ":" + client.getNick() + "!" + client.getUser() + "@127.0.0.1 " 
+        reply = ":" + client.getNick() + "!" + client.getUser() + client.getHostname() + " " 
                 + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
         iter->second.getSendQueue() += reply;
         struct epoll_event current_ev;
@@ -96,8 +96,9 @@ void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::st
 
 void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
     const Channel*  targetChannel = server.getChannel(target);
-    std::string     senderNick = client.getNick().empty() ? "*" : client.getNick();
-    std::string     senderUser = client.getUser().empty() ? "*" : client.getUser();
+    std::string     senderNick = client.getNick();
+    std::string     senderUser = client.getUser();
+    std::string     senderHost = client.getHostname();
     std::string     serverName = server.getServerName();
     std::string     reply;
 
@@ -110,25 +111,19 @@ void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, s
 
     // sender is not a member of the channel
     if (!targetChannel->isMember(client.getFd())) {
-        std::cout << "Indeed\n";
         reply = makeReply(serverName, 404, senderNick, "Cannot send to channel", target);
         client.getSendQueue() += reply;
         return ;
     }
 
+    // build message to send everyone
+    reply = ":" + senderNick + "!" + senderUser + "@" + senderHost + " " 
+            + parsedMsg.command + " " + target + " :" + messageText + "\r\n";
+
     std::set<int>::iterator iter = targetChannel->getMembers().begin();
-    for (; iter != targetChannel->getMembers().end(); iter++) {
-        if (*iter == client.getFd()) {
-            continue ;
+    for (; iter != targetChannel->getMembers().end(); ++iter) {
+        if (*iter != client.getFd()) {
+            server.queueResponse(*iter, reply);
         }
-        reply = ":" + senderNick + "!" + senderUser + "@127.0.0.1 " 
-                + parsedMsg.command + " " + target + " :" + messageText + "\r\n";
-        Client& tempClient = server.getMap().find(*iter)->second;
-        tempClient.getSendQueue() += reply;
-        struct epoll_event current_ev;
-        memset(&current_ev, 0, sizeof(current_ev));
-        current_ev.events = EPOLLOUT | EPOLLIN;
-        current_ev.data.fd = tempClient.getFd();
-        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, tempClient.getFd(), &current_ev);
     }
 }

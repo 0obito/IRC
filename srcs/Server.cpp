@@ -394,3 +394,18 @@ void            Server::inactivityTracker() {
         }
     }
 }
+
+void Server::queueResponse(int targetFd, const std::string& message) {
+    // checking for surprise disconnects
+    std::map<int, Client>::iterator it = clientMap.find(targetFd);
+    if (it != clientMap.end()) {
+        it->second.getSendQueue() += message;
+
+        struct epoll_event current_ev;
+        memset(&current_ev, 0, sizeof(current_ev));
+        current_ev.events = EPOLLIN | EPOLLOUT;
+        current_ev.data.fd = targetFd;
+
+        epoll_ctl(epfd, EPOLL_CTL_MOD, targetFd, &current_ev);
+    }
+}

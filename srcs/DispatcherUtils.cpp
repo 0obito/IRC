@@ -6,43 +6,49 @@
 #include "../includes/Utils.hpp"
 #include "../includes/Channel.hpp"
 
-// i am not sure if this could've been built using makeReply(), I built it before checking the method :-)
+// DONE
 void welcomingSeq(Client& client, const std::string serverName) {
     std::string nick = client.getNick();
     std::string user = client.getUser();
-    std::string version = "0.1";
+    std::string host = client.getHostname();
+    std::string version = " 1.0";
+    std::string userModes = " o";
+    std::string chanModes = " itkol";
     std::stringstream ss;
 
     ss << ":" << serverName << " 001 " << nick;
-    ss << " :Welcome To NetworkDyalna " << nick << "!" << user << "@127.0.0.1\r\n";
+    ss << " :Welcome To ircDyalna Internet Relay Chat Network " << nick << "!" << user << "@" << host <<"\r\n";
 
     ss << ":" << serverName << " 002 " << nick;
-    ss << " :Your host is " << serverName << ", running version " << version << "\r\n";
+    ss << " :Your host is " << serverName << ", running version 1.0\r\n";
 
     ss << ":" << serverName << " 003 " << nick;
-    ss << " :This server was created f 3am lfil\r\n";
+    ss << " :This server was created not so long ago\r\n";
 
     ss << ":" << serverName << " 004 " << nick;
-    ss << " " << serverName << " " << version << " io itkol\r\n";
+    ss << " " << serverName << version << userModes << chanModes << "\r\n";
 
     ss << ":" << serverName << " 005 " << nick;
-    ss << " CHANTYPES=# CHANNELLEN=32 NICKLEN=9 NETWORK=NetworkDyalna :are supported by this server\r\n";
+    ss << " CHANTYPES=#& PREFIX=(o)@ CHANNELLEN=50 NICKLEN=30 NETWORK=NetworkDyalna :are supported by this server\r\n";
+
+    ss << ":" << serverName << " 422 " << nick;
+    ss << " :MOTD File is missing\r\n";
 
     std::string finalMsg = ss.str();
     client.getSendQueue() += finalMsg;
     return ;
 }
 
-// CHECKED AND DONE
+// DONE
 void registerClient(Client& client, const std::string serverName) {
     if (client.getPassOk() && client.getNickOk() && client.getUserOk()) {
         client.setRegistered(true);
-        // client.updateActivity();
         welcomingSeq(client, serverName);
     }
     return ;
 }
 
+// DONE
 void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
@@ -51,13 +57,11 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
     if (client.isRegistered()) {
         reply = makeReply(serverName, 462, targetNick, "Unauthorized command (already registered)");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_ALREADYREGISTERED (462)" << std::endl;
         return ;
     }
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
     if (parsedMsg.params[0] == server.getPassword()) {
@@ -68,11 +72,11 @@ void handlePASS(Server& server, Client& client, Command& parsedMsg) {
         client.setPassOk(false);
         reply = makeReply(serverName, 464, targetNick, "Password incorrect");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_PASSWDMISMATCH (464)" << std::endl;
         return ;
     }
 }
 
+// DONE
 bool nickIsValid(const std::string &nickName) {
     if (nickName.empty())
         return false;
@@ -85,7 +89,7 @@ bool nickIsValid(const std::string &nickName) {
     return true;
 }
 
-// CHECKED AND DONE [NO NOT YET!]
+// NOT YET!
 void handleNICK(Server& server, Client& client, Command& parsedMsg) {
     std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
@@ -123,13 +127,12 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
         return ;
     }
 
-    std::string oldNick = client.getNick();
     client.setNick(nickName);
     client.setNickOk(true);
 
     if (client.isRegistered()) {
         // build NICK message
-        std::string nickMsg = ":" + oldNick + "!" + client.getUser() + "@localhost NICK :" + nickName + "\r\n";
+        std::string nickMsg = ":" + targetNick + "!" + client.getUser() + "@" + client.getHostname() + " NICK :" + nickName + "\r\n";
 
         // Send to the client first
         client.getSendQueue() += nickMsg;
@@ -172,7 +175,7 @@ void handleNICK(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleUSER(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string targetNick = client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
@@ -181,6 +184,7 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
         client.getSendQueue() += reply;
         return ;
     }
+
     if (!client.getPassOk()) {
         reply = makeReply(serverName, 464, targetNick, "Password incorrect");
         client.getSendQueue() += reply;
@@ -198,32 +202,29 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
-    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
     if (!client.isRegistered()) {
         reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NOTREGISTERED (451)" << std::endl;
         return ;
     }
+
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 411, senderNick, "No recipient given (PRIVMSG)");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NORECIPIENT (411)" << std::endl;
         return ;
     }
     if (parsedMsg.params.size() < 2) {
         reply = makeReply(serverName, 412, senderNick, "No text to send");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NOTEXTTOSEND (412)" << std::endl;
         return ;
     }
     if (parsedMsg.params.size() > 2) {
         reply = makeReply(serverName, 461, senderNick, "Syntax error", parsedMsg.command);
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
     }
 
@@ -249,26 +250,24 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePING(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NOTREGISTERED (451)" << std::endl;
         return ;
     }
+
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 409, targetNick, "No origin specified");
+        reply = makeReply(serverName, 409, senderNick, "No origin specified");
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NOORIGIN (409)" << std::endl;
         return ;
     }
     if (parsedMsg.params.size() > 1 && parsedMsg.params[1] != serverName) {
-        reply = makeReply(serverName, 402, targetNick, "No such server", parsedMsg.params[1]);
+        reply = makeReply(serverName, 402, senderNick, "No such server", parsedMsg.params[1]);
         client.getSendQueue() += reply;
-        // std::cout << "ERR_NOSUCHSERVER (402)" << std::endl;
         return ;
     }
 
@@ -280,22 +279,23 @@ void handlePING(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePONG(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
     if (!client.isRegistered()) {
         return ;
     }
+
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 409, targetNick, "No origin specified");
+        reply = makeReply(serverName, 409, senderNick, "No origin specified");
         client.getSendQueue() += reply;
         // std::cout << "ERR_NOORIGIN (409)" << std::endl;
         return ;
     }
     if (parsedMsg.params.size() > 2) {
         //  :irc.example.net 461 a pong :Syntax error
-        reply = makeReply(serverName, 461, targetNick, "Syntax error", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Syntax error", parsedMsg.command);
         client.getSendQueue() += reply;
         // std::cout << "ERR_NEEDMOREPARAMS (461)" << std::endl;
         return ;
@@ -303,31 +303,31 @@ void handlePONG(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
-    
+
     // Check if client is registered
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // Check if enough parameters
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
-    
+
     // Parse channel names (comma separated)
     std::string channelList = parsedMsg.params[0];
     std::string keyList = parsedMsg.params.size() > 1 ? parsedMsg.params[1] : "";
     std::stringstream channelStream(channelList);
     std::stringstream keyStream(keyList);
     std::string channelName, channelKey;
-    
+
     while (std::getline(channelStream, channelName, ',')) {
         // Get key for this channel if provided
         if (!std::getline(keyStream, channelKey, ','))
@@ -338,7 +338,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
 
         // Validate channel name (must start with # or &)
         if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
-            reply = makeReply(serverName, 476, targetNick, "Invalid channel name", channelName);
+            reply = makeReply(serverName, 476, senderNick, "Invalid channel name", channelName);
             client.getSendQueue() += reply;
             continue;
         }
@@ -361,21 +361,21 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
 
         // Check invite-only
         if (channel->isInviteOnly() && !channel->isInvited(client.getFd())) {
-            reply = makeReply(serverName, 473, targetNick, "Cannot join channel (+i)", channelName);
+            reply = makeReply(serverName, 473, senderNick, "Cannot join channel (+i)", channelName);
             client.getSendQueue() += reply;
             continue;
         }
 
         // Check key (if channel has a key and it doesn't match)
         if (!channel->getKey().empty() && channel->getKey() != channelKey) {
-            reply = makeReply(serverName, 475, targetNick, "Cannot join channel (+k)", channelName);
+            reply = makeReply(serverName, 475, senderNick, "Cannot join channel (+k)", channelName);
             client.getSendQueue() += reply;
             continue;
         }
 
         // Check user limit
         if (channel->isFull()) {
-            reply = makeReply(serverName, 471, targetNick, "Cannot join channel (+l)", channelName);
+            reply = makeReply(serverName, 471, senderNick, "Cannot join channel (+l)", channelName);
             client.getSendQueue() += reply;
             continue;
         }
@@ -394,7 +394,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
         }
 
         // Send JOIN message to the client
-        reply = ":" + client.getNick() + "!" + client.getUser() + "@localhost JOIN " + channelName + "\r\n";
+        reply = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " JOIN " + channelName + "\r\n";
         client.getSendQueue() += reply;
 
         // Send JOIN to all other members in channel
@@ -446,21 +446,22 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
     }
 }
 
+// DONE
 void handlePART(Server& server, Client& client, Command& parsedMsg) {
-    std::string targetNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
-    
+
     // Check if client is registered
     if (!client.isRegistered()) {
-        reply = makeReply(serverName, 451, targetNick, "Connection not registered");
+        reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
 
     // Check if enough parameters
     if (parsedMsg.params.empty()) {
-        reply = makeReply(serverName, 461, targetNick, "Not enough parameters", parsedMsg.command);
+        reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
         return;
     }
@@ -477,22 +478,22 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
 
         // Validate channel name
         if (lowerChannelName.empty() || (lowerChannelName[0] != '#' && lowerChannelName[0] != '&')) {
-            reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+            reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
             client.getSendQueue() += reply;
             continue;
         }
-        
+
         // Check if channel exists
         Channel* channel = server.getChannel(lowerChannelName);
         if (!channel) {
-            reply = makeReply(serverName, 403, targetNick, "No such channel", channelName);
+            reply = makeReply(serverName, 403, senderNick, "No such channel", channelName);
             client.getSendQueue() += reply;
             continue;
         }
 
         // Check if client is in the channel
         if (!channel->isMember(client.getFd())) {
-            reply = makeReply(serverName, 442, targetNick, "You're not on that channel", channelName);
+            reply = makeReply(serverName, 442, senderNick, "You're not on that channel", channelName);
             client.getSendQueue() += reply;
             continue;
         }
@@ -500,24 +501,15 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         // Build PART message (broadcast to ALL members including the departing user)
         std::string partMsg;
         if (reason.empty()) {
-            partMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost PART " + channelName + "\r\n";
+            partMsg = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " PART " + channelName + "\r\n";
         } else {
-            partMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost PART " + channelName + " :" + reason + "\r\n";
+            partMsg = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " PART " + channelName + " :" + reason + "\r\n";
         }
 
         // Send PART to all members in the channel (including the departing user)
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
-            std::map<int, Client>::iterator iter = server.getMap().find(*it);
-            if (iter != server.getMap().end()) {
-                iter->second.getSendQueue() += partMsg;
-
-                struct epoll_event current_ev;
-                memset(&current_ev, 0, sizeof(current_ev));
-                current_ev.events = EPOLLOUT | EPOLLIN;
-                current_ev.data.fd = *it;
-                epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
-            }
+            queueResponse(*it, partMsg);
         }
 
         // Remove client from channel
@@ -609,7 +601,7 @@ void handleKICK(Server& server, Client& client, Command& parsedMsg) {
     }
     
     // build KICK message
-    std::string kickMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost KICK " + channelName + " " + targetToKick + " :" + reason + "\r\n";
+    std::string kickMsg = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " KICK " + channelName + " " + targetToKick + " :" + reason + "\r\n";
     
     // send KICK to all members in the channel
     const std::set<int>& members = channel->getMembers();
@@ -723,12 +715,12 @@ void handleTOPIC(Server& server, Client& client, Command& parsedMsg) {
         // change the channel's topic, and notify everyone
         else {
             // build TOPIC message
-            std::string topicMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost TOPIC " + channelName + " :" + newTopic + "\r\n";
+            std::string topicMsg = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " TOPIC " + channelName + " :" + newTopic + "\r\n";
 
             // change topic name for the channel
             channel->setTopic(newTopic);
             channel->setTopicUpdateTime(time(NULL));
-            std::string topicChanger = client.getNick() + "!" + client.getUser() + "@" + "localhost";
+            std::string topicChanger = client.getNick() + "!" + client.getUser() + "@" + client.getHostname();
             channel->setTopicUpdateUser(topicChanger);
 
             // send TOPIC message to all members in the channel
@@ -822,9 +814,9 @@ void handleINVITE(Server& server, Client& client, Command& parsedMsg) {
     // send INVITE notification to target
     std::map<int, Client>::iterator targetIter = server.getMap().find(targetFd);
     if (targetIter != server.getMap().end()) {
-        std::string inviteMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost INVITE " + targetToInvite + " :" + channelName + "\r\n";
+        std::string inviteMsg = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " INVITE " + targetToInvite + " :" + channelName + "\r\n";
         targetIter->second.getSendQueue() += inviteMsg;
-        
+
         struct epoll_event current_ev;
         memset(&current_ev, 0, sizeof(current_ev));
         current_ev.events = EPOLLOUT | EPOLLIN;
@@ -982,7 +974,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
         
         // BROADCAST TO ALL CHANNEL MEMBERS
         if (modeChanged && !appliedChanges.empty()) {
-            std::string modeMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost MODE " + channel->getName() + " " + appliedChanges + appliedParams + "\r\n";
+            std::string modeMsg = ":" + client.getNick() + "!" + client.getUser() + "@" + client.getHostname() + " MODE " + channel->getName() + " " + appliedChanges + appliedParams + "\r\n";
             
             const std::set<int>& members = channel->getMembers();
             for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
