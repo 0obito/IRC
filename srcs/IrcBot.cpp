@@ -41,7 +41,7 @@ void IrcBot::connectToServer() {
         throw std::runtime_error("ERROR: Address is invalid / unsupported");
     }
     server_addr.sin_addr.s_addr = servAddress;
-    std::cout << "Connecting to " << servAddress << ":" << server_port << "..." << std::endl;
+    std::cout << "Connecting to " << server_ip << ":" << server_port << "..." << std::endl;
     if (connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         throw std::runtime_error("ERROR: Connection failed");
     }
