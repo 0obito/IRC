@@ -69,32 +69,28 @@ std::string toUpper(const std::string &s)
     return res;
 }
 
-void    sendToClient(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
+bool    sendToClient(Server& server, Client& client, const std::string& command, std::string& target, std::string& messageText) {
     int         targetFD = server.nicknameOwner(target);
-    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
+    std::string senderNick = client.getNick();
+    std::string senderUser = client.getUser();
+    std::string senderHost = client.getHostname();
     std::string serverName = server.getServerName();
     std::string reply;
 
     if (targetFD == -1) {
         reply = makeReply(serverName, 401, senderNick, "No such nickname", target);
         client.getSendQueue() += reply;
-        return ;
+        return false;
     }
-    std::cout<<"we can't be here, we shouldn't be here!\n";
-    std::map<int, Client>::iterator iter = server.getMap().find(targetFD);
-    if (iter != server.getMap().end()) {
-        reply = ":" + client.getNick() + "!" + client.getUser() + client.getHostname() + " " 
-                + parsedMsg.command + " " + iter->second.getNick() + " :" + messageText + "\r\n";
-        iter->second.getSendQueue() += reply;
-        struct epoll_event current_ev;
-        memset(&current_ev, 0, sizeof(current_ev));
-        current_ev.events = EPOLLOUT | EPOLLIN;
-        current_ev.data.fd = iter->first;
-        epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, iter->first, &current_ev);
-    }
+
+    // build message to send to target user
+    reply = ":" + senderNick + "!" + senderUser + "@" + senderHost + " " 
+            + command + " " + target + " :" + messageText + "\r\n";
+    server.queueResponse(targetFD, reply);
+    return true;
 }
 
-void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText) {
+bool    broadcastToChannel(Server& server, Client& client, const std::string& command, std::string& target, std::string& messageText) {
     const Channel*  targetChannel = server.getChannel(target);
     std::string     senderNick = client.getNick();
     std::string     senderUser = client.getUser();
@@ -106,19 +102,19 @@ void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, s
     if (targetChannel == NULL) {
         reply = makeReply(serverName, 401, senderNick, "No such channel", target);
         client.getSendQueue() += reply;
-        return ;
+        return false;
     }
 
     // sender is not a member of the channel
     if (!targetChannel->isMember(client.getFd())) {
         reply = makeReply(serverName, 404, senderNick, "Cannot send to channel", target);
         client.getSendQueue() += reply;
-        return ;
+        return false;
     }
 
-    // build message to send everyone
+    // build message to send target channel
     reply = ":" + senderNick + "!" + senderUser + "@" + senderHost + " " 
-            + parsedMsg.command + " " + target + " :" + messageText + "\r\n";
+            + command + " " + target + " :" + messageText + "\r\n";
 
     std::set<int>::iterator iter = targetChannel->getMembers().begin();
     for (; iter != targetChannel->getMembers().end(); ++iter) {
@@ -126,4 +122,5 @@ void    broadcastToChannel(Server& server, Client& client, Command& parsedMsg, s
             server.queueResponse(*iter, reply);
         }
     }
+    return true;
 }

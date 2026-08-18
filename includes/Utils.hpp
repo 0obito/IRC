@@ -19,7 +19,7 @@ std::string itostr(int n);
 std::string toUpper(const std::string &s);
 
 std::string makeReply(const std::string &serverName, int code, const std::string &target, const std::string &msg, const std::string &extraArgs = "");
-void        sendToClient(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText);
-void        broadcastToChannel(Server& server, Client& client, Command& parsedMsg, std::string& target, std::string& messageText);
+bool        sendToClient(Server& server, Client& client, const std::string& command, std::string& target, std::string& messageText);
+bool        broadcastToChannel(Server& server, Client& client, const std::string& command, std::string& target, std::string& messageText);
 
 #endif

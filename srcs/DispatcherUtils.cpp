@@ -29,7 +29,7 @@ void welcomingSeq(Client& client, const std::string serverName) {
     ss << " " << serverName << version << userModes << chanModes << "\r\n";
 
     ss << ":" << serverName << " 005 " << nick;
-    ss << " CHANTYPES=#& PREFIX=(o)@ CHANNELLEN=50 NICKLEN=30 NETWORK=NetworkDyalna :are supported by this server\r\n";
+    ss << " CHANTYPES=#& CHANNELLEN=50 NICKLEN=30 NETWORK=NetworkDyalna :are supported by this server\r\n";
 
     ss << ":" << serverName << " 422 " << nick;
     ss << " :MOTD File is missing\r\n";
@@ -197,26 +197,32 @@ void handleUSER(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
-    std::string senderNick = client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
+    // are u registered?
     if (!client.isRegistered()) {
         reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return ;
     }
 
+    // to who!
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 411, senderNick, "No recipient given (PRIVMSG)");
         client.getSendQueue() += reply;
         return ;
     }
+
+    // send what!
     if (parsedMsg.params.size() < 2) {
         reply = makeReply(serverName, 412, senderNick, "No text to send");
         client.getSendQueue() += reply;
         return ;
     }
+
+    // too many params my dude
     if (parsedMsg.params.size() > 2) {
         reply = makeReply(serverName, 461, senderNick, "Syntax error", parsedMsg.command);
         client.getSendQueue() += reply;
@@ -228,6 +234,9 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
     std::stringstream ss(rawTargets);
     std::string singleTarget;
 
+    std::set<int> notifiedFds;
+    std::set<std::string> notifiedChannels;
+
     while (std::getline(ss, singleTarget, ',')) {
         // empty name, go to the next one
         if (singleTarget.empty()) {
@@ -235,11 +244,21 @@ void handlePRIVMSG(Server& server, Client& client, Command& parsedMsg) {
         }
         // it's to a channel, broadcast the message
         else if (singleTarget[0] == '#' || singleTarget[0] == '&') {
-            broadcastToChannel(server, client, parsedMsg, singleTarget, messageText);
+            std::string lowChannel = toLower(singleTarget);
+            if (notifiedChannels.find(lowChannel) == notifiedChannels.end()) {
+                if (broadcastToChannel(server, client, parsedMsg.command, singleTarget, messageText)) {
+                    notifiedChannels.insert(lowChannel);
+                }
+            }
         }
         // it's to a user, send the message
         else {
-            sendToClient(server, client, parsedMsg, singleTarget, messageText);
+            int userFD = server.nicknameOwner(singleTarget);
+            if (notifiedFds.find(userFD) == notifiedFds.end()) {
+                if (sendToClient(server, client, parsedMsg.command, singleTarget, messageText)) {
+                    notifiedFds.insert(userFD);
+                }
+            }
         }
     }
 }
@@ -274,7 +293,7 @@ void handlePING(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handlePONG(Server& server, Client& client, Command& parsedMsg) {
-    std::string senderNick = client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
@@ -295,7 +314,7 @@ void handlePONG(Server& server, Client& client, Command& parsedMsg) {
 }
 
 void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
-    std::string senderNick = client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
@@ -393,16 +412,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
             if (*it != client.getFd()) {
-                std::map<int, Client>::iterator iter = server.getMap().find(*it);
-                if (iter != server.getMap().end()) {
-                    iter->second.getSendQueue() += reply;
-
-                    struct epoll_event current_ev;
-                    memset(&current_ev, 0, sizeof(current_ev));
-                    current_ev.events = EPOLLOUT | EPOLLIN;
-                    current_ev.data.fd = *it;
-                    epoll_ctl(server.getEPFD(), EPOLL_CTL_MOD, *it, &current_ev);
-                }
+                server.queueResponse(*it, reply);
             }
         }
 
@@ -440,7 +450,7 @@ void handleJOIN(Server& server, Client& client, Command& parsedMsg) {
 
 // DONE
 void handlePART(Server& server, Client& client, Command& parsedMsg) {
-    std::string senderNick = client.getNick();
+    std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
 
