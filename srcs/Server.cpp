@@ -282,7 +282,7 @@ void            Server::multiplexer() {
 
                     // If the client was flagged for death before (e.g: timed out on PING)
                     if (iter->second.isDead()) {
-                        disconnectClient(currentFd);
+                        disconnectClient(iter);
                     }
                 }
             }
@@ -293,19 +293,34 @@ void            Server::multiplexer() {
 
 
 // other
-void            Server::disconnectClient(int fd)
+void            Server::disconnectClient(std::map<int, Client>::iterator it)
 {
-    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-    close(fd);
-    
-    clientMap.erase(fd);
-    // ISSUE. loop through joined channels and disconnect, or broadcast a msg or smthg
-}
+    std::string reply;
 
-void            Server::disconnectClient(std::map<int, Client>::iterator it)   // I newly added this, it's faster but we can't use it all the time
-{
     epoll_ctl(epfd, EPOLL_CTL_DEL, it->first, NULL);
     close(it->first);
+    Client& cl = it->second;
+    std::set<std::string> chans = cl.getJoinedChannels();
+    std::set<std::string>::iterator chansIT= chans.begin();
+    std::set<int> notifiedFds;
+    reply = ":" + cl.getNick() + "!" + cl.getUser() + "@" + cl.getHostname() + " QUIT :Client disconnected\r\n";
+    for (; chansIT != chans.end(); ++chansIT) {
+        // Loop through all channels joined by client
+        Channel* channel = getChannel(*chansIT);
+        if (channel) {
+            // loop through ga3 members of channel
+            const std::set<int>& members = channel->getMembers();
+            for (std::set<int>::const_iterator memIt = members.begin(); memIt != members.end(); ++memIt) {
+                // notify each client once
+                if (notifiedFds.find(*memIt) == notifiedFds.end()) {
+                    queueResponse(*memIt, reply);
+                    notifiedFds.insert(*memIt);
+                }
+            }
+            cl.leaveChannel(*chansIT);
+        }
+    }
+
     clientMap.erase(it);
     // ISSUE. loop through joined channels and disconnect, or broadcast a msg or smthg
 }

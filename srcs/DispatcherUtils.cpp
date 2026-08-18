@@ -861,7 +861,7 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
             client.getSendQueue() += reply;
             return;
         }
-        
+
         if (parsedMsg.params.size() < 2) {
             std::string modeString = "+";
             if (channel->isInviteOnly()) modeString += "i";
