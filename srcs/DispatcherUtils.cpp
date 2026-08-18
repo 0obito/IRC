@@ -509,7 +509,7 @@ void handlePART(Server& server, Client& client, Command& parsedMsg) {
         // Send PART to all members in the channel (including the departing user)
         const std::set<int>& members = channel->getMembers();
         for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it) {
-            queueResponse(*it, partMsg);
+            server.queueResponse(*it, partMsg);
         }
 
         // Remove client from channel

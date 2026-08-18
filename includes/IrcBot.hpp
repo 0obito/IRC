@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
+#include <csignal>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <ctime>

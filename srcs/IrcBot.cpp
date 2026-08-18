@@ -1,5 +1,11 @@
 #include "../includes/IrcBot.hpp"
 
+volatile int signalBotStatus = -1;
+
+void    signalHandler(int signal) {
+    signalBotStatus = signal;
+}
+
 IrcBot::IrcBot(const std::string& ip, int port, const std::string& pass)
     : server_ip(ip),
     password(pass),
@@ -17,6 +23,12 @@ IrcBot::~IrcBot() {
 
 void IrcBot::connectToServer() {
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct timeval tv;
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
     if (socket_fd < 0) {
         throw std::runtime_error("ERROR: Couldn't create socket");
     }
@@ -25,7 +37,7 @@ void IrcBot::connectToServer() {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(server_port);
     in_addr_t servAddress = inet_addr(server_ip.c_str());
-    if (servAddress == (in_addr_t)(-1)) {
+    if (servAddress ==  INADDR_NONE) {
         throw std::runtime_error("ERROR: Address is invalid / unsupported");
     }
     server_addr.sin_addr.s_addr = servAddress;
@@ -54,13 +66,18 @@ void IrcBot::run() {
     char read_buffer[1024];
     std::string message_buffer = "";
 
-    while (true) {
+    while (signalBotStatus == -1) {
         std::memset(read_buffer, 0, sizeof(read_buffer));
 
         int bytes_received = recv(socket_fd, read_buffer, sizeof(read_buffer), 0);
 
-        if (bytes_received <= 0) {
-            throw std::runtime_error("ERROR: Couldn't read from the server");
+        if (bytes_received == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+            if(errno == EINTR)
+                throw std::runtime_error("SIGINT receved.");
+            else
+                throw std::runtime_error("ERROR: Couldn't read from the server");  
         }
 
         message_buffer.append(read_buffer, bytes_received);
@@ -113,6 +130,8 @@ int main(int argc, char* argv[]) {
         std::cerr << "ERROR: Port must be between 1 and 65535." << std::endl;
         return 1;
     }
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGQUIT, signalHandler);
 
     try {
         IrcBot myBot(ip, port, password);
