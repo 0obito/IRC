@@ -297,6 +297,7 @@ void            Server::disconnectClient(int fd)
 {
     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
     close(fd);
+    
     clientMap.erase(fd);
     // ISSUE. loop through joined channels and disconnect, or broadcast a msg or smthg
 }

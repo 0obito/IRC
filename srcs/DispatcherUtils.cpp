@@ -831,13 +831,13 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
     std::string senderNick = client.getNick().empty() ? "*" : client.getNick();
     std::string serverName = server.getServerName();
     std::string reply;
-    
+
     if (!client.isRegistered()) {
         reply = makeReply(serverName, 451, senderNick, "Connection not registered");
         client.getSendQueue() += reply;
         return;
     }
-    
+
     if (parsedMsg.params.empty()) {
         reply = makeReply(serverName, 461, senderNick, "Not enough parameters", parsedMsg.command);
         client.getSendQueue() += reply;
@@ -862,24 +862,24 @@ void handleMODE(Server& server, Client& client, Command& parsedMsg) {
             return;
         }
         
-        if (!channel->isOperator(client.getFd())) {
-            reply = makeReply(serverName, 482, senderNick, "You're not channel operator", target);
-            client.getSendQueue() += reply;
-            return;
-        }
-        
         if (parsedMsg.params.size() < 2) {
             std::string modeString = "+";
             if (channel->isInviteOnly()) modeString += "i";
             if (channel->isTopicRestricted()) modeString += "t";
             if (!channel->getKey().empty()) modeString += "k";
             if (channel->isFull()) modeString += "l";
-            
+
             reply = makeReply(serverName, 324, senderNick, channel->getName() + " " + modeString);
             client.getSendQueue() += reply;
             return;
         }
-        
+
+        if (!channel->isOperator(client.getFd())) {
+            reply = makeReply(serverName, 482, senderNick, "You're not channel operator", target);
+            client.getSendQueue() += reply;
+            return;
+        }
+
         std::string modeChanges = parsedMsg.params[1];
         bool adding = true;
         bool modeChanged = false;
